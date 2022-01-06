@@ -1611,7 +1611,9 @@ mod builder {
             let _ = Self::spawn_post_commit(handle.clone(), post_commit_receiver);
 
             let configs = conductor_config.admin_interfaces.unwrap_or_default();
+        tracing::debug!("MADE IT {}:{}", file!(), line!());
             let cell_startup_errors = handle.clone().initialize_conductor(configs).await?;
+        tracing::debug!("MADE IT {}:{}", file!(), line!());
 
             // TODO: This should probably be emitted over the admin interface
             if !cell_startup_errors.is_empty() {
@@ -1620,8 +1622,10 @@ mod builder {
                     ?cell_startup_errors
                 );
             }
+        tracing::debug!("MADE IT {}:{}", file!(), line!());
 
             handle.print_setup();
+        tracing::debug!("MADE IT {}:{}", file!(), line!());
 
             Ok(handle)
         }

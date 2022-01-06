@@ -34,6 +34,7 @@ pub async fn validation_receipt_workflow(
     let cell_ids = conductor.list_cell_ids(Some(CellStatus::Joined));
 
     if cell_ids.is_empty() {
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
         return Ok(WorkComplete::Incomplete);
     }
 

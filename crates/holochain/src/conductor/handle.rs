@@ -492,6 +492,7 @@ impl<DS: DnaStore + 'static> ConductorHandleT for ConductorHandleImpl<DS> {
             .await
     }
 
+    #[tracing::instrument(skip(self, admin_configs))]
     async fn initialize_conductor(
         self: Arc<Self>,
         admin_configs: Vec<AdminInterfaceConfig>,
@@ -995,6 +996,7 @@ impl<DS: DnaStore + 'static> ConductorHandleT for ConductorHandleImpl<DS> {
         let results = self
             .create_and_add_initialized_cells_for_running_apps(self.clone())
             .await?;
+        tracing::debug!("MADE IT {}:{}", file!(), line!());
         Ok(results)
     }
 
@@ -1303,6 +1305,7 @@ impl<DS: DnaStore + 'static> ConductorHandleImpl<DS> {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     /// Deal with the side effects of an app status state transition
     async fn process_app_status_fx(
         self: Arc<Self>,
@@ -1328,18 +1331,22 @@ impl<DS: DnaStore + 'static> ConductorHandleImpl<DS> {
                 }
                 SpinUp | Both => {
                     // Reconcile cell status so that missing/pending cells can become fully joined
+        tracing::debug!("MADE IT {}:{}", file!(), line!());
                     let errors = self.clone().reconcile_cell_status_with_app_status().await?;
 
+        tracing::debug!("MADE IT {}:{}", file!(), line!());
                     // Reconcile app status in case some cells failed to join, so the app can be paused
                     let delta = self
                         .clone()
                         .reconcile_app_status_with_cell_status(app_ids.clone())
                         .await?;
 
+        tracing::debug!("MADE IT {}:{}", file!(), line!());
                     // TODO: This should probably be emitted over the admin interface
                     if !errors.is_empty() {
                         error!(msg = "Errors when trying to start app(s)", ?errors);
                     }
+        tracing::debug!("MADE IT {}:{}", file!(), line!());
 
                     (delta, errors)
                 }
