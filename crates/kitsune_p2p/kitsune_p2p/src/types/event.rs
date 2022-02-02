@@ -3,6 +3,7 @@
 use crate::types::agent_store::AgentInfoSigned;
 use kitsune_p2p_timestamp::Timestamp;
 use kitsune_p2p_types::dht_arc::{DhtArcSet, DhtLocation};
+use must_future::MustBoxFuture;
 use std::{collections::HashSet, sync::Arc};
 
 /// Gather a list of op-hashes from our implementor that meet criteria.
@@ -230,7 +231,7 @@ pub enum KGenReq {
     },
 }
 
-/// Generic Kitsune Respons from the imlementor
+/// Generic Kitsune Response from the implementor
 pub enum KGenRes {
     /// Extrapolated Peer Coverage
     PeerExtrapCov(Vec<f64>),
@@ -244,46 +245,62 @@ type KOpHash = Arc<super::KitsuneOpHash>;
 type Payload = Vec<u8>;
 type Ops = Vec<(KOpHash, Payload)>;
 
-ghost_actor::ghost_chan! {
-    /// The KitsuneP2pEvent stream allows handling events generated from the
-    /// KitsuneP2p actor.
-    pub chan KitsuneP2pEvent<super::KitsuneP2pError> {
-        /// Generic Kitsune Request of the implementor
-        fn k_gen_req(arg: KGenReq) -> KGenRes;
+/// TODO: rename to ApiResult
+pub type KitsuneP2pEventHandlerResult<T> =
+    Result<MustBoxFuture<'static, Result<T, super::KitsuneP2pError>>, super::KitsuneP2pError>;
 
-        /// We need to store signed agent info.
-        fn put_agent_info_signed(input: PutAgentInfoSignedEvt) -> ();
+type ApiResult<T> = KitsuneP2pEventHandlerResult<T>;
 
-        /// We need to get previously stored agent info.
-        fn get_agent_info_signed(input: GetAgentInfoSignedEvt) -> Option<crate::types::agent_store::AgentInfoSigned>;
+/// The KitsuneP2pEvent stream allows handling events generated from the
+/// KitsuneP2p actor.
+pub trait KitsuneP2pEventHandler: Send + Sync {
+    /// Generic Kitsune Request of the implementor
+    fn k_gen_req(&self, arg: KGenReq) -> ApiResult<KGenRes>;
 
-        /// We need to get previously stored agent info.
-        fn query_agents(input: QueryAgentsEvt) -> Vec<crate::types::agent_store::AgentInfoSigned>;
+    /// We need to store signed agent info.
+    fn put_agent_info_signed(&self, input: PutAgentInfoSignedEvt) -> ApiResult<()>;
 
-        /// Query the peer density of a space for a given [`DhtArc`].
-        fn query_peer_density(space: KSpace, dht_arc: kitsune_p2p_types::dht_arc::DhtArc) -> kitsune_p2p_types::dht_arc::PeerViewBeta;
+    /// We need to get previously stored agent info.
+    fn get_agent_info_signed(
+        &self,
+        input: GetAgentInfoSignedEvt,
+    ) -> ApiResult<Option<crate::types::agent_store::AgentInfoSigned>>;
 
-        /// We are receiving a request from a remote node.
-        fn call(space: KSpace, to_agent: KAgent, payload: Payload) -> Vec<u8>;
+    /// We need to get previously stored agent info.
+    fn query_agents(
+        &self,
+        input: QueryAgentsEvt,
+    ) -> ApiResult<Vec<crate::types::agent_store::AgentInfoSigned>>;
 
-        /// We are receiving a notification from a remote node.
-        fn notify(space: KSpace, to_agent: KAgent, payload: Payload) -> ();
+    /// Query the peer density of a space for a given [`DhtArc`].
+    fn query_peer_density(
+        &self,
+        space: KSpace,
+        dht_arc: kitsune_p2p_types::dht_arc::DhtArc,
+    ) -> ApiResult<kitsune_p2p_types::dht_arc::PeerViewBeta>;
 
-        /// We are receiving a dht op we may need to hold distributed via gossip.
-        fn gossip(space: KSpace, ops: Ops) -> ();
+    /// We are receiving a request from a remote node.
+    fn call(&self, space: KSpace, to_agent: KAgent, payload: Payload) -> ApiResult<Vec<u8>>;
 
-        /// Gather a list of op-hashes from our implementor that meet criteria.
-        /// Get the oldest and newest times for ops within a time window and max number of ops.
-        // maackle: do we really need to *individually* wrap all these op hashes in Arcs?
-        fn query_op_hashes(input: QueryOpHashesEvt) -> Option<(Vec<KOpHash>, TimeWindowInclusive)>;
+    /// We are receiving a notification from a remote node.
+    fn notify(&self, space: KSpace, to_agent: KAgent, payload: Payload) -> ApiResult<()>;
 
-        /// Gather all op-hash data for a list of op-hashes from our implementor.
-        fn fetch_op_data(input: FetchOpDataEvt) -> Vec<(KOpHash, Vec<u8>)>;
+    /// We are receiving a dht op we may need to hold distributed via gossip.
+    fn gossip(&self, space: KSpace, ops: Ops) -> ApiResult<()>;
 
-        /// Request that our implementor sign some data on behalf of an agent.
-        fn sign_network_data(input: SignNetworkDataEvt) -> super::KitsuneSignature;
-    }
+    /// Gather a list of op-hashes from our implementor that meet criteria.
+    /// Get the oldest and newest times for ops within a time window and max number of ops.
+    // maackle: do we really need to *individually* wrap all these op hashes in Arcs?
+    fn query_op_hashes(
+        &self,
+        input: QueryOpHashesEvt,
+    ) -> ApiResult<Option<(Vec<KOpHash>, TimeWindowInclusive)>>;
+
+    /// Gather all op-hash data for a list of op-hashes from our implementor.
+    fn fetch_op_data(&self, input: FetchOpDataEvt) -> ApiResult<Vec<(KOpHash, Vec<u8>)>>;
+
+    /// Request that our implementor sign some data on behalf of an agent.
+    fn sign_network_data(&self, input: SignNetworkDataEvt) -> ApiResult<super::KitsuneSignature>;
 }
 
-/// Receiver type for incoming connection events.
-pub type KitsuneP2pEventReceiver = futures::channel::mpsc::Receiver<KitsuneP2pEvent>;
+pub type ApiBox = Arc<dyn KitsuneP2pEventHandler>;

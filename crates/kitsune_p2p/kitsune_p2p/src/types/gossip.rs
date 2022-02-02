@@ -1,3 +1,5 @@
+use crate::event::ApiBox;
+use crate::event::KitsuneP2pEventHandler;
 use crate::metrics::*;
 use crate::types::*;
 use kitsune_p2p_types::config::*;
@@ -75,7 +77,7 @@ pub trait AsGossipModuleFactory: 'static + Send + Sync {
         tuning_params: KitsuneP2pTuningParams,
         space: Arc<KitsuneSpace>,
         ep_hnd: Tx2EpHnd<wire::Wire>,
-        evt_sender: futures::channel::mpsc::Sender<event::KitsuneP2pEvent>,
+        evt_sender: ApiBox,
         metrics: MetricsSync,
     ) -> GossipModule;
 }
@@ -88,7 +90,7 @@ impl GossipModuleFactory {
         tuning_params: KitsuneP2pTuningParams,
         space: Arc<KitsuneSpace>,
         ep_hnd: Tx2EpHnd<wire::Wire>,
-        evt_sender: futures::channel::mpsc::Sender<event::KitsuneP2pEvent>,
+        evt_sender: ApiBox,
         metrics: MetricsSync,
     ) -> GossipModule {
         self.0

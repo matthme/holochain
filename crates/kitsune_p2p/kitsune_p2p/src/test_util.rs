@@ -45,7 +45,7 @@ test_val! {
 pub async fn spawn_handler<H: KitsuneP2pEventHandler + ghost_actor::GhostControlHandler>(
     h: H,
 ) -> (
-    futures::channel::mpsc::Sender<event::KitsuneP2pEvent>,
+    ApiBox,
     tokio::task::JoinHandle<ghost_actor::GhostResult<()>>,
 ) {
     let builder = ghost_actor::actor_builder::GhostActorBuilder::new();

@@ -80,7 +80,7 @@ pub(crate) struct KitsuneP2pActor {
     this_addr: url2::Url2,
     channel_factory: ghost_actor::actor_builder::GhostActorChannelFactory<Self>,
     internal_sender: ghost_actor::GhostSender<Internal>,
-    evt_sender: futures::channel::mpsc::Sender<KitsuneP2pEvent>,
+    evt_sender: ApiBox,
     ep_hnd: Tx2EpHnd<wire::Wire>,
     #[allow(clippy::type_complexity)]
     spaces: HashMap<
@@ -101,7 +101,7 @@ impl KitsuneP2pActor {
         tls_config: kitsune_p2p_proxy::TlsConfig,
         channel_factory: ghost_actor::actor_builder::GhostActorChannelFactory<Self>,
         internal_sender: ghost_actor::GhostSender<Internal>,
-        evt_sender: futures::channel::mpsc::Sender<KitsuneP2pEvent>,
+        evt_sender: ApiBox,
     ) -> KitsuneP2pResult<Self> {
         crate::types::metrics::init();
 
@@ -584,35 +584,33 @@ impl InternalHandler for KitsuneP2pActor {
     }
 }
 
-impl ghost_actor::GhostHandler<KitsuneP2pEvent> for KitsuneP2pActor {}
-
 impl KitsuneP2pEventHandler for KitsuneP2pActor {
-    fn handle_k_gen_req(&mut self, arg: KGenReq) -> KitsuneP2pEventHandlerResult<KGenRes> {
+    fn k_gen_req(&mut self, arg: KGenReq) -> KitsuneP2pEventHandlerResult<KGenRes> {
         Ok(self.evt_sender.k_gen_req(arg))
     }
 
-    fn handle_put_agent_info_signed(
+    fn put_agent_info_signed(
         &mut self,
         input: crate::event::PutAgentInfoSignedEvt,
     ) -> KitsuneP2pEventHandlerResult<()> {
         Ok(self.evt_sender.put_agent_info_signed(input))
     }
 
-    fn handle_get_agent_info_signed(
+    fn get_agent_info_signed(
         &mut self,
         input: crate::event::GetAgentInfoSignedEvt,
     ) -> KitsuneP2pEventHandlerResult<Option<crate::types::agent_store::AgentInfoSigned>> {
         Ok(self.evt_sender.get_agent_info_signed(input))
     }
 
-    fn handle_query_agents(
+    fn query_agents(
         &mut self,
         input: crate::event::QueryAgentsEvt,
     ) -> KitsuneP2pEventHandlerResult<Vec<crate::types::agent_store::AgentInfoSigned>> {
         Ok(self.evt_sender.query_agents(input))
     }
 
-    fn handle_query_peer_density(
+    fn query_peer_density(
         &mut self,
         space: Arc<KitsuneSpace>,
         dht_arc: kitsune_p2p_types::dht_arc::DhtArc,
@@ -620,7 +618,7 @@ impl KitsuneP2pEventHandler for KitsuneP2pActor {
         Ok(self.evt_sender.query_peer_density(space, dht_arc))
     }
 
-    fn handle_call(
+    fn call(
         &mut self,
         space: Arc<KitsuneSpace>,
         to_agent: Arc<KitsuneAgent>,
@@ -629,7 +627,7 @@ impl KitsuneP2pEventHandler for KitsuneP2pActor {
         Ok(self.evt_sender.call(space, to_agent, payload))
     }
 
-    fn handle_notify(
+    fn notify(
         &mut self,
         space: Arc<KitsuneSpace>,
         to_agent: Arc<KitsuneAgent>,
@@ -638,7 +636,7 @@ impl KitsuneP2pEventHandler for KitsuneP2pActor {
         Ok(self.evt_sender.notify(space, to_agent, payload))
     }
 
-    fn handle_gossip(
+    fn gossip(
         &mut self,
         space: Arc<KitsuneSpace>,
         ops: Vec<(Arc<KitsuneOpHash>, Vec<u8>)>,
@@ -646,21 +644,21 @@ impl KitsuneP2pEventHandler for KitsuneP2pActor {
         Ok(self.evt_sender.gossip(space, ops))
     }
 
-    fn handle_fetch_op_data(
+    fn fetch_op_data(
         &mut self,
         input: FetchOpDataEvt,
     ) -> KitsuneP2pEventHandlerResult<Vec<(Arc<KitsuneOpHash>, Vec<u8>)>> {
         Ok(self.evt_sender.fetch_op_data(input))
     }
 
-    fn handle_query_op_hashes(
+    fn query_op_hashes(
         &mut self,
         input: QueryOpHashesEvt,
     ) -> KitsuneP2pEventHandlerResult<Option<(Vec<Arc<KitsuneOpHash>>, TimeWindowInclusive)>> {
         Ok(self.evt_sender.query_op_hashes(input))
     }
 
-    fn handle_sign_network_data(
+    fn sign_network_data(
         &mut self,
         input: SignNetworkDataEvt,
     ) -> KitsuneP2pEventHandlerResult<KitsuneSignature> {
@@ -887,71 +885,66 @@ mockall::mock! {
     pub KitsuneP2pEventHandler {}
 
     impl KitsuneP2pEventHandler for KitsuneP2pEventHandler {
-        fn handle_k_gen_req(
+        fn k_gen_req(
             &mut self,
             arg: KGenReq,
         ) -> KitsuneP2pEventHandlerResult<KGenRes>;
 
-        fn handle_put_agent_info_signed(
+        fn put_agent_info_signed(
             &mut self,
             input: crate::event::PutAgentInfoSignedEvt,
         ) -> KitsuneP2pEventHandlerResult<()>;
 
-        fn handle_get_agent_info_signed(
+        fn get_agent_info_signed(
             &mut self,
             input: crate::event::GetAgentInfoSignedEvt,
         ) -> KitsuneP2pEventHandlerResult<Option<crate::types::agent_store::AgentInfoSigned>>;
 
-        fn handle_query_agents(
+        fn query_agents(
             &mut self,
             input: crate::event::QueryAgentsEvt,
         ) -> KitsuneP2pEventHandlerResult<Vec<crate::types::agent_store::AgentInfoSigned>>;
 
-        fn handle_query_peer_density(
+        fn query_peer_density(
             &mut self,
             space: Arc<KitsuneSpace>,
             dht_arc: kitsune_p2p_types::dht_arc::DhtArc,
         ) -> KitsuneP2pEventHandlerResult<kitsune_p2p_types::dht_arc::PeerViewBeta>;
 
-        fn handle_call(
+        fn call(
             &mut self,
             space: Arc<KitsuneSpace>,
             to_agent: Arc<KitsuneAgent>,
             payload: Vec<u8>,
         ) -> KitsuneP2pEventHandlerResult<Vec<u8>>;
 
-        fn handle_notify(
+        fn notify(
             &mut self,
             space: Arc<KitsuneSpace>,
             to_agent: Arc<KitsuneAgent>,
             payload: Vec<u8>,
         ) -> KitsuneP2pEventHandlerResult<()> ;
 
-        fn handle_gossip(
+        fn gossip(
             &mut self,
             space: Arc<KitsuneSpace>,
             ops: Vec<(Arc<KitsuneOpHash>, Vec<u8>)>,
         ) -> KitsuneP2pEventHandlerResult<()>;
 
-        fn handle_query_op_hashes(
+        fn query_op_hashes(
             &mut self,
             input: QueryOpHashesEvt,
         ) -> KitsuneP2pEventHandlerResult<Option<(Vec<Arc<KitsuneOpHash>>, TimeWindowInclusive)>>;
 
-        fn handle_fetch_op_data(
+        fn fetch_op_data(
             &mut self,
             input: FetchOpDataEvt,
         ) -> KitsuneP2pEventHandlerResult<Vec<(Arc<KitsuneOpHash>, Vec<u8>)>> ;
 
-        fn handle_sign_network_data(
+        fn sign_network_data(
             &mut self,
             input: SignNetworkDataEvt,
         ) -> KitsuneP2pEventHandlerResult<KitsuneSignature> ;
 
     }
 }
-
-#[cfg(any(test, feature = "test_utils"))]
-impl ghost_actor::GhostHandler<KitsuneP2pEvent> for MockKitsuneP2pEventHandler {}
-#[cfg(any(test, feature = "test_utils"))]
-impl ghost_actor::GhostControlHandler for MockKitsuneP2pEventHandler {}

@@ -65,7 +65,6 @@ const MAX_SEND_BUF_BYTES: usize = 16_000_000;
 const ROUND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
 type BloomFilter = bloomfilter::Bloom<Arc<MetaOpKey>>;
-type EventSender = futures::channel::mpsc::Sender<event::KitsuneP2pEvent>;
 
 #[derive(Debug)]
 struct TimedBloomFilter {
@@ -144,7 +143,7 @@ impl ShardedGossip {
         tuning_params: KitsuneP2pTuningParams,
         space: Arc<KitsuneSpace>,
         ep_hnd: Tx2EpHnd<wire::Wire>,
-        evt_sender: EventSender,
+        evt_sender: ApiBox,
         gossip_type: GossipType,
         bandwidth: Arc<BandwidthThrottle>,
         metrics: MetricsSync,
@@ -335,7 +334,7 @@ pub struct ShardedGossipLocal {
     gossip_type: GossipType,
     tuning_params: KitsuneP2pTuningParams,
     space: Arc<KitsuneSpace>,
-    evt_sender: EventSender,
+    evt_sender: ApiBox,
     inner: Share<ShardedGossipLocalState>,
     closing: AtomicBool,
 }
@@ -1073,7 +1072,7 @@ impl AsGossipModuleFactory for ShardedRecentGossipFactory {
         tuning_params: KitsuneP2pTuningParams,
         space: Arc<KitsuneSpace>,
         ep_hnd: Tx2EpHnd<wire::Wire>,
-        evt_sender: futures::channel::mpsc::Sender<event::KitsuneP2pEvent>,
+        evt_sender: ApiBox,
         metrics: MetricsSync,
     ) -> GossipModule {
         GossipModule(ShardedGossip::new(
@@ -1104,7 +1103,7 @@ impl AsGossipModuleFactory for ShardedHistoricalGossipFactory {
         tuning_params: KitsuneP2pTuningParams,
         space: Arc<KitsuneSpace>,
         ep_hnd: Tx2EpHnd<wire::Wire>,
-        evt_sender: futures::channel::mpsc::Sender<event::KitsuneP2pEvent>,
+        evt_sender: ApiBox,
         metrics: MetricsSync,
     ) -> GossipModule {
         GossipModule(ShardedGossip::new(

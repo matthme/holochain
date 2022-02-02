@@ -253,7 +253,7 @@ pub(crate) struct SimpleBloomMod {
     send_interval_ms: u64,
     space: Arc<KitsuneSpace>,
     ep_hnd: Tx2EpHnd<wire::Wire>,
-    evt_sender: futures::channel::mpsc::Sender<event::KitsuneP2pEvent>,
+    evt_sender: ApiBox,
     inner: Share<SimpleBloomModInner>,
 }
 
@@ -262,7 +262,7 @@ impl SimpleBloomMod {
         tuning_params: KitsuneP2pTuningParams,
         space: Arc<KitsuneSpace>,
         ep_hnd: Tx2EpHnd<wire::Wire>,
-        evt_sender: futures::channel::mpsc::Sender<event::KitsuneP2pEvent>,
+        evt_sender: ApiBox,
         metrics: MetricsSync,
     ) -> Arc<Self> {
         let inner = SimpleBloomModInner::new(metrics);
@@ -508,7 +508,7 @@ impl AsGossipModuleFactory for SimpleBloomModFactory {
         tuning_params: KitsuneP2pTuningParams,
         space: Arc<KitsuneSpace>,
         ep_hnd: Tx2EpHnd<wire::Wire>,
-        evt_sender: futures::channel::mpsc::Sender<event::KitsuneP2pEvent>,
+        evt_sender: ApiBox,
         metrics: MetricsSync,
     ) -> GossipModule {
         GossipModule(SimpleBloomMod::new(

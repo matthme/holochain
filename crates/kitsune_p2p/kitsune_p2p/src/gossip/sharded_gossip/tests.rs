@@ -15,7 +15,7 @@ mod test_two_nodes;
 impl ShardedGossipLocal {
     pub fn test(
         gossip_type: GossipType,
-        evt_sender: EventSender,
+        evt_sender: ApiBox,
         inner: ShardedGossipLocalState,
     ) -> Self {
         // TODO: randomize space

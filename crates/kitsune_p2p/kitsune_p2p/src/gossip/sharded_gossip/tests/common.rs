@@ -11,30 +11,28 @@ async fn standard_responses(
 ) -> MockKitsuneP2pEventHandler {
     let mut evt_handler = MockKitsuneP2pEventHandler::new();
     let infos = agents.iter().map(|(_, i)| i.clone()).collect::<Vec<_>>();
-    evt_handler.expect_handle_query_agents().returning({
+    evt_handler.expect_query_agents().returning({
         let infos = infos.clone();
         move |_| {
             let infos = infos.clone();
             Ok(async move { Ok(infos.clone()) }.boxed().into())
         }
     });
-    evt_handler
-        .expect_handle_get_agent_info_signed()
-        .returning({
+    evt_handler.expect_get_agent_info_signed().returning({
+        let infos = infos.clone();
+        move |input| {
             let infos = infos.clone();
-            move |input| {
-                let infos = infos.clone();
-                let agent = infos
-                    .iter()
-                    .find(|a| a.agent == input.agent)
-                    .unwrap()
-                    .clone();
-                Ok(async move { Ok(Some(agent)) }.boxed().into())
-            }
-        });
+            let agent = infos
+                .iter()
+                .find(|a| a.agent == input.agent)
+                .unwrap()
+                .clone();
+            Ok(async move { Ok(Some(agent)) }.boxed().into())
+        }
+    });
 
     if with_data {
-        evt_handler.expect_handle_query_op_hashes().returning(|_| {
+        evt_handler.expect_query_op_hashes().returning(|_| {
             Ok(async {
                 Ok(Some((
                     vec![Arc::new(KitsuneOpHash(vec![0; 36]))],
@@ -44,7 +42,7 @@ async fn standard_responses(
             .boxed()
             .into())
         });
-        evt_handler.expect_handle_fetch_op_data().returning(|_| {
+        evt_handler.expect_fetch_op_data().returning(|_| {
             Ok(
                 async { Ok(vec![(Arc::new(KitsuneOpHash(vec![0; 36])), vec![0])]) }
                     .boxed()
@@ -53,14 +51,14 @@ async fn standard_responses(
         });
     } else {
         evt_handler
-            .expect_handle_query_op_hashes()
+            .expect_query_op_hashes()
             .returning(|_| Ok(async { Ok(None) }.boxed().into()));
         evt_handler
-            .expect_handle_fetch_op_data()
+            .expect_fetch_op_data()
             .returning(|_| Ok(async { Ok(vec![]) }.boxed().into()));
     }
     evt_handler
-        .expect_handle_gossip()
+        .expect_gossip()
         .returning(|_, _| Ok(async { Ok(()) }.boxed().into()));
     evt_handler
 }

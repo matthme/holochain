@@ -63,7 +63,7 @@ impl HandlerBuilder {
     #[allow(dead_code, unused_variables)]
     pub fn with_noop_gossip(mut self, agent_data: MockAgentPersistence) -> Self {
         self.0
-            .expect_handle_gossip()
+            .expect_gossip()
             .returning(|_, _| Ok(async { Ok(()) }.boxed().into()));
 
         self
@@ -80,7 +80,7 @@ impl HandlerBuilder {
         let agents_only: Vec<_> = info_only.iter().map(|info| info.agent.clone()).collect();
         let delay = self.1;
 
-        self.0.expect_handle_query_agents().returning({
+        self.0.expect_query_agents().returning({
             let info_only = info_only.clone();
             move |_| {
                 let info_only = info_only.clone();
@@ -88,7 +88,7 @@ impl HandlerBuilder {
             }
         });
 
-        self.0.expect_handle_get_agent_info_signed().returning({
+        self.0.expect_get_agent_info_signed().returning({
             let agents = agents_only.clone();
             move |input| {
                 let agents = agents.clone();
@@ -101,7 +101,7 @@ impl HandlerBuilder {
 
         let d = delay.clone();
         self.0
-            .expect_handle_query_op_hashes()
+            .expect_query_op_hashes()
             .returning(move |arg: QueryOpHashesEvt| {
                 // Return ops for agent, correctly filtered by arc but not by time window
                 let QueryOpHashesEvt {
@@ -149,7 +149,7 @@ impl HandlerBuilder {
             });
 
         self.0
-            .expect_handle_fetch_op_data()
+            .expect_fetch_op_data()
             .returning(move |arg: FetchOpDataEvt| {
                 // Return dummy data for each op
                 let FetchOpDataEvt {
@@ -168,7 +168,7 @@ impl HandlerBuilder {
             });
 
         self.0
-            .expect_handle_gossip()
+            .expect_gossip()
             .returning(move |_, _| Ok(async { Ok(()) }.boxed().into()));
         self
     }

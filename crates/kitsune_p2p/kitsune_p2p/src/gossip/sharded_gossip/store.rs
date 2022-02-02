@@ -5,9 +5,9 @@ use std::ops::ControlFlow;
 use std::{collections::HashSet, sync::Arc};
 
 use crate::event::{
-    PutAgentInfoSignedEvt, QueryAgentsEvt, QueryOpHashesEvt, TimeWindow, TimeWindowInclusive,
+    ApiBox, PutAgentInfoSignedEvt, QueryAgentsEvt, QueryOpHashesEvt, TimeWindow,
+    TimeWindowInclusive,
 };
-use crate::types::event::KitsuneP2pEventSender;
 use kitsune_p2p_timestamp::Timestamp;
 use kitsune_p2p_types::{
     agent_info::AgentInfoSigned,
@@ -16,11 +16,11 @@ use kitsune_p2p_types::{
     KitsuneError, KitsuneResult,
 };
 
-use super::{EventSender, ShardedGossipLocal};
+use super::ShardedGossipLocal;
 
 /// Get all agent info signed for a space.
 pub(super) async fn all_agent_info(
-    evt_sender: &EventSender,
+    evt_sender: &ApiBox,
     space: &Arc<KitsuneSpace>,
 ) -> KitsuneResult<Vec<AgentInfoSigned>> {
     Ok(evt_sender
@@ -31,7 +31,7 @@ pub(super) async fn all_agent_info(
 
 /// Get all `AgentInfoSigned` for agents in a space.
 pub(super) async fn query_agent_info(
-    evt_sender: &EventSender,
+    evt_sender: &ApiBox,
     space: &Arc<KitsuneSpace>,
     agents: &HashSet<Arc<KitsuneAgent>>,
 ) -> KitsuneResult<Vec<AgentInfoSigned>> {
@@ -44,7 +44,7 @@ pub(super) async fn query_agent_info(
 
 /// Get the arc intervals for specified agent, paired with their respective agent.
 pub(super) async fn local_agent_arcs(
-    evt_sender: &EventSender,
+    evt_sender: &ApiBox,
     space: &Arc<KitsuneSpace>,
     local_agents: &HashSet<Arc<KitsuneAgent>>,
 ) -> KitsuneResult<Vec<(Arc<KitsuneAgent>, ArcInterval)>> {
@@ -57,7 +57,7 @@ pub(super) async fn local_agent_arcs(
 
 /// Get just the arc intervals for specified agents.
 pub(super) async fn local_arcs(
-    evt_sender: &EventSender,
+    evt_sender: &ApiBox,
     space: &Arc<KitsuneSpace>,
     local_agents: &HashSet<Arc<KitsuneAgent>>,
 ) -> KitsuneResult<Vec<ArcInterval>> {
@@ -70,7 +70,7 @@ pub(super) async fn local_arcs(
 
 /// Get `AgentInfoSigned` for all agents within a `DhtArcSet`.
 pub(super) async fn agent_info_within_arc_set(
-    evt_sender: &EventSender,
+    evt_sender: &ApiBox,
     space: &Arc<KitsuneSpace>,
     arc_set: Arc<DhtArcSet>,
 ) -> KitsuneResult<impl Iterator<Item = AgentInfoSigned>> {
@@ -87,7 +87,7 @@ pub(super) async fn agent_info_within_arc_set(
 
 /// Get agents and their intervals within a `DhtArcSet`.
 pub(super) async fn agents_within_arcset(
-    evt_sender: &EventSender,
+    evt_sender: &ApiBox,
     space: &Arc<KitsuneSpace>,
     arc_set: Arc<DhtArcSet>,
 ) -> KitsuneResult<Vec<(Arc<KitsuneAgent>, ArcInterval)>> {
@@ -102,7 +102,7 @@ pub(super) async fn agents_within_arcset(
 
 /// Get all ops for all agents that fall within the specified arcset.
 pub(super) async fn all_op_hashes_within_arcset(
-    evt_sender: &EventSender,
+    evt_sender: &ApiBox,
     space: &Arc<KitsuneSpace>,
     common_arc_set: DhtArcSet,
     window: TimeWindow,
@@ -161,7 +161,7 @@ pub struct TimeChunk {
 /// where the cursor can be saved an a new hash query can be started in the future
 /// where the search time window starts from the previous queries cursor.
 pub(super) fn hash_chunks_query(
-    evt_sender: EventSender,
+    evt_sender: ApiBox,
     space: Arc<KitsuneSpace>,
     common_arc_set: DhtArcSet,
     search_time_window: TimeWindow,
@@ -260,7 +260,7 @@ pub(super) fn hash_chunks_query(
 
 /// Add new agent info to the p2p store.
 pub(super) async fn put_agent_info(
-    evt_sender: &EventSender,
+    evt_sender: &ApiBox,
     space: &Arc<KitsuneSpace>,
     agents: &[Arc<AgentInfoSigned>],
 ) -> KitsuneResult<()> {
@@ -277,7 +277,7 @@ pub(super) async fn put_agent_info(
 
 /// Put new ops into agents that should hold them.
 pub(super) async fn put_ops(
-    evt_sender: &EventSender,
+    evt_sender: &ApiBox,
     space: &Arc<KitsuneSpace>,
     ops: Vec<(Arc<KitsuneOpHash>, Vec<u8>)>,
 ) -> KitsuneResult<()> {

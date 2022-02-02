@@ -27,7 +27,7 @@ impl SimpleBloomMod {
 
 struct Inner {
     space: Arc<KitsuneSpace>,
-    evt_sender: futures::channel::mpsc::Sender<event::KitsuneP2pEvent>,
+    evt_sender: ApiBox,
     local_agents: HashSet<Arc<KitsuneAgent>>,
     data_map: DataMap,
     has_map: HasMap,
@@ -180,7 +180,7 @@ impl Inner {
 }
 
 async fn data_map_get(
-    evt_sender: &mut futures::channel::mpsc::Sender<event::KitsuneP2pEvent>,
+    evt_sender: &mut ApiBox,
     space: &Arc<KitsuneSpace>,
     _agent: &Arc<KitsuneAgent>,
     map: &mut DataMap,

@@ -204,7 +204,7 @@ async fn make_node_inner(data: Option<(usize, TimeWindow)>) -> ShardedGossipLoca
             .collect::<BTreeMap<_, _>>()
     });
     evt_handler
-        .expect_handle_query_op_hashes()
+        .expect_query_op_hashes()
         .returning(move |input| {
             let data = data.clone();
             let data = data.and_then(|data| {

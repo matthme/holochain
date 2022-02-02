@@ -50,7 +50,7 @@ impl ShardedGossipLocal {
 }
 
 async fn get_agent_info(
-    evt_sender: &EventSender,
+    evt_sender: &ApiBox,
     space: &Arc<KitsuneSpace>,
     arc_set: Arc<DhtArcSet>,
 ) -> KitsuneResult<impl Iterator<Item = AgentInfoSigned>> {
