@@ -6,6 +6,16 @@ pub use framed::*;
 mod mem;
 pub use mem::*;
 
+#[cfg(feature = "test_utils")]
+mod combine;
+#[cfg(feature = "test_utils")]
+pub use combine::*;
+
+#[cfg(feature = "test_utils")]
+mod mock;
+#[cfg(feature = "test_utils")]
+pub use mock::*;
+
 pub mod tx2_adapter;
 
 pub mod tx2_api;
