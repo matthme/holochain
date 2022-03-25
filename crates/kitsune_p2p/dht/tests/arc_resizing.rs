@@ -5,6 +5,7 @@
 mod common;
 
 use kitsune_p2p_dht::arq::print_arq;
+use kitsune_p2p_dht::prelude::PeerViewQGen;
 use kitsune_p2p_dht::spacetime::Topology;
 use kitsune_p2p_dht::*;
 
@@ -36,11 +37,11 @@ fn test_shrink_towards_empty() {
     // generate peers with a bit too much coverage (14 > 12)
     let peers: Vec<_> = generate_ideal_coverage(&topo, &mut rng, &strat, Some(14.5), 100, jitter);
     let peer_power = peers.iter().map(|p| p.power()).min().unwrap();
-    let view = PeerViewQ::new(topo.clone(), strat.clone(), peers);
+    let view = PeerViewQGen::new(topo.clone(), strat.clone(), peers);
 
     // start with a full arq at max power
     let mut arq = Arq::new_full(&topo, 0u32.into(), topo.max_space_power(&strat));
-    resize_to_equilibrium(&view, &mut arq);
+    resize_to_equilibrium(&view.to_view(), &mut arq);
     // test that the arc gets reduced in power to match those of its peers
     assert!(
         arq.power() <= peer_power,
@@ -72,7 +73,7 @@ fn test_grow_towards_full() {
     // generate peers with deficient coverage
     let peers: Vec<_> = generate_ideal_coverage(&topo, &mut rng, &strat, Some(7.0), 1000, jitter);
     let peer_power = peers.iter().map(|p| p.power()).min().unwrap();
-    let view = PeerViewQ::new(topo.clone(), strat.clone(), peers);
+    let view = PeerViewQGen::new(topo.clone(), strat.clone(), peers);
 
     // start with an arq comparable to one's peers
     let mut arq = Arq::new(peer_power, 0u32.into(), 12.into());
@@ -108,7 +109,7 @@ fn test_grow_to_full() {
     // generate peers with deficient coverage
     let peers: Vec<_> = generate_ideal_coverage(&topo, &mut rng, &strat, Some(7.0), 1000, jitter);
     let peer_power = peers.iter().map(|p| p.power()).min().unwrap();
-    let view = PeerViewQ::new(topo.clone(), strat.clone(), peers);
+    let view = PeerViewQGen::new(topo.clone(), strat.clone(), peers);
 
     // start with an arq comparable to one's peers
     let mut arq = Arq::new(peer_power, 0u32.into(), 12.into());
@@ -143,7 +144,7 @@ fn test_grow_by_multiple_chunks() {
     // generate peers with far too little coverage
     let peers: Vec<_> = generate_ideal_coverage(&topo, &mut rng, &strat, Some(5.0), 1000, jitter);
     let peer_power = peers.iter().map(|p| p.power()).min().unwrap();
-    let view = PeerViewQ::new(topo.clone(), strat.clone(), peers);
+    let view = PeerViewQGen::new(topo.clone(), strat.clone(), peers);
 
     let arq = Arq::new(peer_power - 1, 0u32.into(), 6.into());
     let mut resized = arq.clone();
@@ -170,7 +171,7 @@ fn test_degenerate_asymmetrical_coverage() {
         buffer: 0.1,
         ..Default::default()
     };
-    let view = PeerViewQ::new(topo.clone(), strat, others);
+    let view = PeerViewQGen::new(topo.clone(), strat, others);
 
     let arq = Arq::new(
         4, // log2 of 0x10
@@ -208,7 +209,7 @@ fn test_scenario() {
         let mut arq = Arq::new_full(&topo, Loc::new(0x0), topo.max_space_power(&strat));
         // create 10 peers, all with full arcs, fully covering the DHT
         let peers: Vec<_> = generate_ideal_coverage(&topo, &mut rng, &strat, None, 10, jitter);
-        let view = PeerViewQ::new(topo.clone(), strat.clone(), peers);
+        let view = PeerViewQGen::new(topo.clone(), strat.clone(), peers);
         let extrapolated = view.extrapolated_coverage(&arq);
         assert_eq!(extrapolated, 10.0);
 
@@ -228,7 +229,7 @@ fn test_scenario() {
             let peer_power = peers.iter().map(|p| p.power()).min().unwrap();
             assert_eq!(peer_power, 26);
 
-            let view = PeerViewQ::new(topo.clone(), strat.clone(), peers.clone());
+            let view = PeerViewQGen::new(topo.clone(), strat.clone(), peers.clone());
             let extrapolated = view.extrapolated_coverage(&arq);
             assert!(extrapolated > strat.max_coverage());
             // assert!(strat.min_coverage <= extrapolated && extrapolated <= strat.max_coverage());
@@ -252,7 +253,7 @@ fn test_scenario() {
                 })
                 .collect();
             let peer_power = peers.iter().map(|p| p.power()).min().unwrap();
-            let view = PeerViewQ::new(topo.clone(), strat.clone(), peers);
+            let view = PeerViewQGen::new(topo.clone(), strat.clone(), peers);
             print_arq(&topo, &arq, 64);
             // assert that our arc will grow as large as it can to pick up the slack.
             while view.update_arq(&topo, &mut arq) {

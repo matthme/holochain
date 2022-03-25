@@ -208,7 +208,7 @@ mod tests {
         let mut rng = seeded_rng(None);
         let peers = generate_ideal_coverage(&topo, &mut rng, &strat, None, num_peers, 0.0);
 
-        let view = PeerViewQ::new(topo, strat.clone(), peers);
+        let view = PeerViewQGen::new(topo, strat.clone(), peers);
         let cov = view.actual_coverage();
 
         let min = strat.min_coverage;
@@ -233,7 +233,7 @@ mod tests {
             };
             let mut rng = seeded_rng(None);
             let peers = generate_ideal_coverage(&topo, &mut rng, &strat, None, num_peers, 0.0);
-            let view = PeerViewQ::new(topo, strat.clone(), peers);
+            let view = PeerViewQGen::new(topo, strat.clone(), peers);
             let cov = view.actual_coverage();
 
             let min = strat.min_coverage;

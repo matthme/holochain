@@ -2,7 +2,7 @@ use kitsune_p2p_dht_arc::{DhtArc, PeerStratAlpha, PeerStratBeta};
 
 use crate::spacetime::Topology;
 
-use super::{Arq, PeerView, PeerViewQ};
+use super::{Arq, PeerView, PeerViewQ, PeerViewQGen};
 
 /// A Strategy for generating PeerViews.
 /// The enum allows us to add new strategies over time.

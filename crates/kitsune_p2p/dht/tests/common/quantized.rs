@@ -122,7 +122,7 @@ pub fn run_one_epoch(
     let mut delta_max = -full_len();
 
     // TODO: update the continuous test framework to only use one view per epoch
-    let mut view = PeerViewQ::new(topo.clone(), strat.clone(), peers.clone());
+    let mut view = PeerViewQGen::new(topo.clone(), strat.clone(), peers.clone());
 
     if detail {
         println!(

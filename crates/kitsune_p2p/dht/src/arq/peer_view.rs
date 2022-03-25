@@ -44,172 +44,28 @@ pub struct PeerViewQ {
     /// The strategy which generated this view
     strat: ArqStrat,
 
+    /// The Arq whose perspective this view is
+    arq: Arq,
+
+    /// The coverage observed
+    extrapolated_coverage: f64,
+
+    /// The number of peers in this view
+    num_peers: u32,
+
     /// The topology of the network space
     pub topo: Topology,
-
-    /// The peers in this view (TODO: replace with calculated values)
-    peers: Vec<Arq>,
-
-    #[cfg(feature = "test_utils")]
-    /// Omit the arq at this index from all peer considerations.
-    /// Useful for tests which update all arqs, without needing to
-    /// construct a new PeerView for each arq needing to be updated
-    pub skip_index: Option<usize>,
 }
 
 impl PeerViewQ {
     /// Constructor
     pub fn new(topo: Topology, strat: ArqStrat, peers: Vec<Arq>) -> Self {
-        Self {
-            strat,
-            topo,
-            peers,
-            #[cfg(feature = "test_utils")]
-            skip_index: None,
-        }
-    }
-
-    /// The actual coverage of all arcs in this view.
-    /// TODO: this only makes sense when the view contains all agents in the DHT.
-    ///       So, it's more useful for testing. Probably want to tease out some
-    ///       concept of a test DHT from this.
-    pub fn actual_coverage(&self) -> f64 {
-        actual_coverage(&self.topo, self.peers.iter())
-    }
-
-    /// Extrapolate the coverage of the entire network from our local view.
-    pub fn extrapolated_coverage(&self, filter: &Arq) -> f64 {
-        self.extrapolated_coverage_and_filtered_count(filter).0
-    }
-
-    /// Return the extrapolated coverage and the number of arqs which match the filter.
-    /// These two are complected together simply for efficiency's sake, to
-    /// minimize computation
-    ///
-    /// TODO: this probably will be rewritten when PeerView is rewritten to
-    /// have the filter baked in.
-    pub fn extrapolated_coverage_and_filtered_count(&self, filter: &Arq) -> (f64, usize) {
-        let filter = filter.to_dht_arc(&self.topo);
-        if filter.is_empty() {
-            // More accurately this would be 0, but it's handy to not have
-            // divide-by-zero crashes
-            return (1.0, 1);
-        }
-        let filter_len = filter.length();
-
-        let initial = (0, 0);
-
-        // FIXME: We can't just filter arcs on the fly here, because we might be
-        // trying to get coverage info for an area we don't have arcs for
-        // (because we don't store arcs for agents outside of our arc).
-        // So, we need to extrapolate the arcs we do have to extend into the
-        // unknown area outside the filter.
-        // For now though, just filter arcs on the fly so we have something to test.
-        // But, this means that the behavior for growing arcs is going to be a bit
-        // different in the future.
-        let (sum, count) = self
-            .filtered_arqs(filter)
-            .fold(initial, |(sum, count), arq| {
-                (sum + arq.absolute_length(&self.topo), count + 1)
-            });
-        let cov = sum as f64 / filter_len as f64;
-        (cov, count)
-    }
-
-    /// Compute the total coverage observed within the filter interval.
-    pub fn raw_coverage(&self, filter: &Arq) -> f64 {
-        self.extrapolated_coverage(filter) * filter.to_dht_arc_range(&self.topo).length() as f64
-            / 2f64.powf(32.0)
+        todo!()
     }
 
     /// Mutate the arq to its ideal target
     pub fn update_arq(&self, topo: &Topology, arq: &mut Arq) -> bool {
-        self.update_arq_with_stats(topo, arq).changed
-    }
-
-    fn is_slacking(&self, cov: f64, num_peers: usize) -> bool {
-        num_peers as f64 <= cov * self.strat.slacker_ratio
-    }
-
-    /// The "slacker" factor. If our observed coverage is significantly
-    /// greater than the number of peers we see, it's an indication
-    /// that we may need to pick up more slack.
-    ///
-    /// This check helps balance out stable but unequitable situations where
-    /// all peers have a similar estimated coverage, but some peers are
-    /// holding much more than others.
-    pub fn slack_factor(&self, cov: f64, num_peers: usize) -> f64 {
-        if self.is_slacking(cov, num_peers) {
-            if num_peers.is_zero() {
-                // Prevent a NaN.
-                // This value gets clamped anyway, so it will never actually
-                // lead to an infinite value.
-                f64::INFINITY
-            } else {
-                cov / num_peers as f64
-            }
-        } else {
-            1.0
-        }
-    }
-
-    fn growth_factor(&self, cov: f64, num_peers: usize, median_power_diff: i8) -> f64 {
-        let np = num_peers as f64;
-        let under = cov < self.strat.min_coverage;
-        let over = cov > self.strat.max_coverage();
-
-        // The ratio of ideal coverage vs actual observed coverage.
-        // A ratio > 1 indicates undersaturation and a need to grow.
-        // A ratio < 1 indicates oversaturation and a need to shrink.
-        let cov_diff = if over || under {
-            let ratio = self.strat.midline_coverage() / cov;
-
-            // We want to know which of our peers are likely to be making a similar
-            // update to us, because that will affect the overall coverage more
-            // than the drop in the bucket that we can provide.
-            //
-            // If all peers have seen the same change as us since their last update,
-            // they will on average move similarly to us, and so we should only make
-            // a small step in the direction of the target, trusting that our peers
-            // will do the same.
-            //
-            // Conversely, if all peers are stable, e.g. if we just came online to
-            // find a situation where all peers around us are under-representing,
-            // but stable, then we want to make a much bigger leap.
-            let peer_dampening_factor = 1.0 / (1.0 + np);
-
-            (ratio - 1.0) * peer_dampening_factor + 1.0
-        } else {
-            1.0
-        };
-
-        // The "slacker" factor. If our observed coverage is significantly
-        // greater than the number of peers we see, it's an indication
-        // that we may need to pick up more slack.
-        //
-        // This check helps balance out stable but unequitable situations where
-        // all peers have a similar estimated coverage, but some peers are
-        // holding much more than others.
-        let slack_factor = self.slack_factor(cov, num_peers);
-
-        let unbounded_growth = cov_diff * slack_factor;
-
-        // The difference between the median power and the arq's power helps
-        // determine some limits on growth.
-        // If we are at the median growth, then it makes sense to cap
-        // our movement by 2x in either direction (1/2 to 2)
-        //
-        // If we are 1 below the median, then our range is (1/2 to 4)
-        // If we are 2 below the median, then our range is (1/2 to 8)
-        // If we are 1 above the median, then our range is (1/4 to 2)
-        // If we are 2 above the median, then our range is (1/8 to 2)
-        //
-        // Note that there is also a hard limit on growth described by
-        // ArqStrat::max_power_diff, enforced elsewhere.
-        let mpd = median_power_diff as f64;
-        let min = 2f64.powf(mpd).min(0.5);
-        let max = 2f64.powf(mpd).max(2.0);
-        unbounded_growth.clamp(min, max)
+        todo!()
     }
 
     /// Take an arq and potentially resize and requantize it based on this view.
@@ -344,6 +200,185 @@ impl PeerViewQ {
             num_peers,
         }
     }
+}
+
+#[cfg(feature = "test_utils")]
+pub struct PeerViewQGen {
+    /// The strategy which generated this view
+    strat: ArqStrat,
+
+    /// The topology of the network space
+    pub topo: Topology,
+
+    /// The peers in this view (TODO: replace with calculated values)
+    peers: Vec<Arq>,
+
+    #[cfg(feature = "test_utils")]
+    /// Omit the arq at this index from all peer considerations.
+    /// Useful for tests which update all arqs, without needing to
+    /// construct a new PeerView for each arq needing to be updated
+    pub skip_index: Option<usize>,
+}
+
+impl PeerViewQGen {
+    /// Constructor
+    pub fn new(topo: Topology, strat: ArqStrat, peers: Vec<Arq>) -> Self {
+        Self {
+            strat,
+            topo,
+            peers,
+            #[cfg(feature = "test_utils")]
+            skip_index: None,
+        }
+    }
+
+    pub fn to_view(&self, filter: &Arq) -> PeerViewQ {
+        todo!()
+    }
+
+    /// The actual coverage of all arcs in this view.
+    /// TODO: this only makes sense when the view contains all agents in the DHT.
+    ///       So, it's more useful for testing. Probably want to tease out some
+    ///       concept of a test DHT from this.
+    pub fn actual_coverage(&self) -> f64 {
+        actual_coverage(&self.topo, self.peers.iter())
+    }
+
+    /// Extrapolate the coverage of the entire network from our local view.
+    pub fn extrapolated_coverage(&self, filter: &Arq) -> f64 {
+        self.extrapolated_coverage_and_filtered_count(filter).0
+    }
+
+    /// Return the extrapolated coverage and the number of arqs which match the filter.
+    /// These two are complected together simply for efficiency's sake, to
+    /// minimize computation
+    ///
+    /// TODO: this probably will be rewritten when PeerView is rewritten to
+    /// have the filter baked in.
+    pub fn extrapolated_coverage_and_filtered_count(&self, filter: &Arq) -> (f64, usize) {
+        self.to_view(filter).extrapolated_coverage_and_filtered_count()
+        let filter = filter.to_dht_arc(&self.topo);
+        if filter.is_empty() {
+            // More accurately this would be 0, but it's handy to not have
+            // divide-by-zero crashes
+            return (1.0, 1);
+        }
+        let filter_len = filter.length();
+
+        let initial = (0, 0);
+
+        // FIXME: We can't just filter arcs on the fly here, because we might be
+        // trying to get coverage info for an area we don't have arcs for
+        // (because we don't store arcs for agents outside of our arc).
+        // So, we need to extrapolate the arcs we do have to extend into the
+        // unknown area outside the filter.
+        // For now though, just filter arcs on the fly so we have something to test.
+        // But, this means that the behavior for growing arcs is going to be a bit
+        // different in the future.
+        let (sum, count) = self
+            .filtered_arqs(filter)
+            .fold(initial, |(sum, count), arq| {
+                (sum + arq.absolute_length(&self.topo), count + 1)
+            });
+        let cov = sum as f64 / filter_len as f64;
+        (cov, count)
+    }
+
+    /// Compute the total coverage observed within the filter interval.
+    fn raw_coverage(&self, filter: &Arq) -> f64 {
+        self.extrapolated_coverage(filter) * filter.to_dht_arc_range(&self.topo).length() as f64
+            / 2f64.powf(32.0)
+    }
+
+    /// Mutate the arq to its ideal target
+    pub fn update_arq(&self, topo: &Topology, arq: &mut Arq) -> bool {
+        self.update_arq_with_stats(topo, arq).changed
+    }
+
+    fn is_slacking(&self, cov: f64, num_peers: usize) -> bool {
+        num_peers as f64 <= cov * self.strat.slacker_ratio
+    }
+
+    /// The "slacker" factor. If our observed coverage is significantly
+    /// greater than the number of peers we see, it's an indication
+    /// that we may need to pick up more slack.
+    ///
+    /// This check helps balance out stable but unequitable situations where
+    /// all peers have a similar estimated coverage, but some peers are
+    /// holding much more than others.
+    pub fn slack_factor(&self, cov: f64, num_peers: usize) -> f64 {
+        if self.is_slacking(cov, num_peers) {
+            if num_peers.is_zero() {
+                // Prevent a NaN.
+                // This value gets clamped anyway, so it will never actually
+                // lead to an infinite value.
+                f64::INFINITY
+            } else {
+                cov / num_peers as f64
+            }
+        } else {
+            1.0
+        }
+    }
+
+    fn growth_factor(&self, cov: f64, num_peers: usize, median_power_diff: i8) -> f64 {
+        let np = num_peers as f64;
+        let under = cov < self.strat.min_coverage;
+        let over = cov > self.strat.max_coverage();
+
+        // The ratio of ideal coverage vs actual observed coverage.
+        // A ratio > 1 indicates undersaturation and a need to grow.
+        // A ratio < 1 indicates oversaturation and a need to shrink.
+        let cov_diff = if over || under {
+            let ratio = self.strat.midline_coverage() / cov;
+
+            // We want to know which of our peers are likely to be making a similar
+            // update to us, because that will affect the overall coverage more
+            // than the drop in the bucket that we can provide.
+            //
+            // If all peers have seen the same change as us since their last update,
+            // they will on average move similarly to us, and so we should only make
+            // a small step in the direction of the target, trusting that our peers
+            // will do the same.
+            //
+            // Conversely, if all peers are stable, e.g. if we just came online to
+            // find a situation where all peers around us are under-representing,
+            // but stable, then we want to make a much bigger leap.
+            let peer_dampening_factor = 1.0 / (1.0 + np);
+
+            (ratio - 1.0) * peer_dampening_factor + 1.0
+        } else {
+            1.0
+        };
+
+        // The "slacker" factor. If our observed coverage is significantly
+        // greater than the number of peers we see, it's an indication
+        // that we may need to pick up more slack.
+        //
+        // This check helps balance out stable but unequitable situations where
+        // all peers have a similar estimated coverage, but some peers are
+        // holding much more than others.
+        let slack_factor = self.slack_factor(cov, num_peers);
+
+        let unbounded_growth = cov_diff * slack_factor;
+
+        // The difference between the median power and the arq's power helps
+        // determine some limits on growth.
+        // If we are at the median growth, then it makes sense to cap
+        // our movement by 2x in either direction (1/2 to 2)
+        //
+        // If we are 1 below the median, then our range is (1/2 to 4)
+        // If we are 2 below the median, then our range is (1/2 to 8)
+        // If we are 1 above the median, then our range is (1/4 to 2)
+        // If we are 2 above the median, then our range is (1/8 to 2)
+        //
+        // Note that there is also a hard limit on growth described by
+        // ArqStrat::max_power_diff, enforced elsewhere.
+        let mpd = median_power_diff as f64;
+        let min = 2f64.powf(mpd).min(0.5);
+        let max = 2f64.powf(mpd).max(2.0);
+        unbounded_growth.clamp(min, max)
+    }
 
     /// Gather statistics about the power levels of all arqs in this view.
     /// Used to make inferences about what your neighbors are up to.
@@ -443,7 +478,7 @@ mod tests {
 
         let arqs = vec![a, b, c];
         print_arqs(&topo, &arqs, 64);
-        let view = PeerViewQ::new(topo.clone(), Default::default(), arqs);
+        let view = PeerViewQGen::new(topo.clone(), Default::default(), arqs);
 
         let get = |b: Arq| {
             view.filtered_arqs(b.to_dht_arc(&topo))
@@ -465,7 +500,7 @@ mod tests {
             .map(|x| make_arq(&topo, pow, x, x + 0x20))
             .collect();
         print_arqs(&topo, &arqs, 64);
-        let view = PeerViewQ::new(topo.clone(), Default::default(), arqs);
+        let view = PeerViewQGen::new(topo.clone(), Default::default(), arqs);
         assert_eq!(
             view.extrapolated_coverage_and_filtered_count(&make_arq(&topo, pow, 0, 0x10)),
             (2.0, 1)
