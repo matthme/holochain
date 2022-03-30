@@ -5,14 +5,14 @@ use idk::prelude::*;
     required_validations = 5,
     required_validation_type = "full"
 )]
-struct Post(String);
+pub struct Post(pub String);
 
 #[hdk_entry(
     id = "msg",
     required_validations = 5,
     required_validation_type = "sub_chain"
 )]
-struct Msg(String);
+pub struct Msg(pub String);
 
 #[hdk_entry(
     id = "priv_msg",
@@ -20,7 +20,7 @@ struct Msg(String);
     required_validation_type = "full",
     visibility = "private"
 )]
-struct PrivMsg(String);
+pub struct PrivMsg(pub String);
 
 entry_defs![Post::entry_def(), Msg::entry_def(), PrivMsg::entry_def()];
 

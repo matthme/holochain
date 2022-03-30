@@ -34,7 +34,7 @@ impl core::fmt::Display for CounterSigningError {
             CounterSigningError::CounterSigningSessionResponsesLength(resp, num_agents) => {
                 write!(f,
                     "The countersigning session responses ({}) did not match the number of signing agents ({})", 
-                    resp, 
+                    resp,
                     num_agents
                 )
             }

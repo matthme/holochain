@@ -1030,6 +1030,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_wasm_coordinator_zome"
+version = "0.0.1"
+dependencies = [
+ "hdk",
+ "holochain_test_wasm_common",
+ "serde",
+ "test_wasm_integrity_zome",
+]
+
+[[package]]
+name = "test_wasm_coordinator_zome_update"
+version = "0.0.1"
+dependencies = [
+ "hdk",
+ "holochain_test_wasm_common",
+ "serde",
+ "test_wasm_integrity_zome",
+]
+
+[[package]]
 name = "test_wasm_countersigning"
 version = "0.0.1"
 dependencies = [
