@@ -5,7 +5,7 @@ impl ShardedGossipLocal {
     /// - Check for any missing agents and send them back.
     pub(super) async fn incoming_agents(
         &self,
-        state: RoundState,
+        state: RoundInfo,
         remote_bloom: BloomFilter,
     ) -> KitsuneResult<Vec<ShardedGossipWire>> {
         // Get all agents within common arc and filter out

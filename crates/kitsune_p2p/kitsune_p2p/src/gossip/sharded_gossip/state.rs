@@ -26,11 +26,11 @@ impl ShardedGossipLocalState {
         }
     }
 
-    pub(super) fn add_round(&mut self, key: StateKey, state: RoundState) {
+    pub(super) fn add_round(&mut self, key: StateKey, state: RoundInfo) {
         self.round_map.insert(key, state);
     }
 
-    pub(super) fn remove_state(&mut self, state_key: &StateKey, error: bool) -> Option<RoundState> {
+    pub(super) fn remove_state(&mut self, state_key: &StateKey, error: bool) -> Option<RoundInfo> {
         // Check if the round to be removed matches the current initiate_tgt
         let init_tgt = self
             .initiate_tgt()

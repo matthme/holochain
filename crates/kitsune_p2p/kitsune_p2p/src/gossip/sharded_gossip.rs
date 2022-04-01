@@ -415,37 +415,12 @@ impl ShardedGossipLocal {
         }
     }
 
-    fn new_state(
-        &self,
-        remote_agent_list: Vec<AgentInfoSigned>,
-        common_arc_set: Arc<DhtArcSet>,
-        region_set_sent: Option<RegionSetLtcs>,
-    ) -> KitsuneResult<RoundState> {
-        Ok(RoundStateBuilder::default()
-            .remote_agent_list(remote_agent_list)
-            .common_arc_set(common_arc_set)
-            .region_set_sent(region_set_sent)
-            .round_timeout(ROUND_TIMEOUT)
-            .last_touch(Instant::now())
-            .build()?)
-        // Ok(RoundState {
-        //     remote_agent_list,
-        //     common_arc_set,
-        //     num_sent_ops_blooms: 0,
-        //     received_all_incoming_ops_blooms: false,
-        //     bloom_batch_cursor: None,
-        //     ops_batch_queue: OpsBatchQueue::new(),
-        //     last_touch: Instant::now(),
-        //     round_timeout: ROUND_TIMEOUT,
-        // })
-    }
-
-    fn get_state(&self, id: &StateKey) -> KitsuneResult<Option<RoundState>> {
+    fn get_state(&self, id: &StateKey) -> KitsuneResult<Option<RoundInfo>> {
         self.inner
             .share_mut(|i, _| Ok(i.round_map().get(id).cloned()))
     }
 
-    fn remove_state(&self, id: &StateKey, error: bool) -> KitsuneResult<Option<RoundState>> {
+    fn remove_state(&self, id: &StateKey, error: bool) -> KitsuneResult<Option<RoundInfo>> {
         self.inner.share_mut(|i, _| Ok(i.remove_state(id, error)))
     }
 
@@ -472,10 +447,10 @@ impl ShardedGossipLocal {
     }
 
     /// If the round is still active then update the state.
-    fn update_state_if_active(&self, key: StateKey, state: RoundState) -> KitsuneResult<()> {
+    fn update_state_if_active(&self, key: StateKey, state: RoundInfo) -> KitsuneResult<()> {
         self.inner.share_mut(|i, _| {
             if i.round_map().round_exists(&key) {
-                if state.is_finished() {
+                if state.state.is_finished() {
                     i.remove_state(&key, false);
                 } else {
                     i.round_map().insert(key, state);
@@ -485,14 +460,14 @@ impl ShardedGossipLocal {
         })
     }
 
-    fn incoming_ops_finished(&self, state_id: &StateKey) -> KitsuneResult<Option<RoundState>> {
+    fn incoming_ops_finished(&self, state_id: &StateKey) -> KitsuneResult<Option<RoundInfo>> {
         self.inner.share_mut(|i, _| {
             let finished = i
                 .round_map()
                 .get_mut(state_id)
-                .map(|state| {
-                    state.set_received_all_incoming_ops_blooms();
-                    state.is_finished()
+                .map(|round| {
+                    round.state.set_all_data_received();
+                    round.state.is_finished()
                 })
                 .unwrap_or(true);
             if finished {
@@ -503,13 +478,19 @@ impl ShardedGossipLocal {
         })
     }
 
-    fn decrement_ops_blooms(&self, state_id: &StateKey) -> KitsuneResult<Option<RoundState>> {
+    fn decrement_ops_blooms(&self, state_id: &StateKey) -> KitsuneResult<Option<RoundInfo>> {
         self.inner.share_mut(|i, _| {
-            let update_state = |state: &mut RoundState| {
-                state.decrement_sent_ops_blooms();
-                // NOTE: there is only ever one "batch" of OpRegions
-                state.has_pending_historical_op_data = false;
-                state.is_finished()
+            let update_state = |round: &mut RoundInfo| {
+                match round.state {
+                    RoundState::Recent(ref mut state) => {
+                        state.decrement_sent_ops_blooms();
+                    }
+                    RoundState::Historical(ref mut state) => {
+                        // NOTE: there is only ever one "batch" of OpRegions
+                        state.received_all_data = true;
+                    }
+                };
+                round.state.is_finished()
             };
             if i.round_map()
                 .get_mut(state_id)
@@ -613,7 +594,7 @@ impl ShardedGossipLocal {
                     // The last ops batch has been received by the
                     // remote node so now send the next batch.
                     let r = self.next_missing_ops_batch(state.clone()).await?;
-                    if state.is_finished() {
+                    if state.state.is_finished() {
                         self.remove_state(&cert, false)?;
                     }
                     r
@@ -621,8 +602,8 @@ impl ShardedGossipLocal {
                 None => Vec::with_capacity(0),
             },
             ShardedGossipWire::OpRegions(OpRegions { region_set }) => {
-                if let Some(state) = self.incoming_ops_finished(&cert)? {
-                    if let Some(sent) = state.region_set_sent.clone() {
+                if let Some(round) = self.incoming_ops_finished(&cert)? {
+                    if let Some(sent) = round.region_set_sent.clone() {
                         let diff_regions = sent.diff(region_set).map_err(KitsuneError::other)?;
                         let topo = self
                             .host_api
@@ -669,7 +650,7 @@ impl ShardedGossipLocal {
                 //     .map(|s| s.region_set_sent.is_some())
                 //     .unwrap_or_default();
 
-                let _state = match finished {
+                let state = match finished {
                     // This is a single chunk of ops. No need to reply.
                     MissingOpsStatus::ChunkComplete => self.get_state(&cert)?,
                     // This is the last chunk in the batch. Reply with [`OpBloomsBatchReceived`]
@@ -683,22 +664,25 @@ impl ShardedGossipLocal {
                     MissingOpsStatus::AllComplete => {
                         // This node can decrement the number of outstanding ops bloom replies
                         // it is waiting for.
-                        let mut state = self.decrement_ops_blooms(&cert)?;
+                        let mut round = self.decrement_ops_blooms(&cert)?;
 
                         // If there are more blooms to send because this node had to batch the blooms
                         // and all the outstanding blooms have been received then this node will send
                         // the next batch of ops blooms starting from the saved cursor.
-                        if let Some(state) =
-                            state.as_mut().filter(|s| s.ready_for_next_bloom_batch())
+                        if let Some(round) =
+                            round.as_mut().filter(|s| s.ready_for_next_bloom_batch())
                         {
+                            match round {
+                                RoundState::Recent(state) => {}
+                            }
                             // We will be producing some gossip so we need to allocate.
                             gossip = Vec::new();
                             // Generate the next ops blooms batch.
-                            *state = self.next_bloom_batch(state.clone(), &mut gossip).await?;
+                            *round = self.next_bloom_batch(round.clone(), &mut gossip).await?;
                             // Update the state.
-                            self.update_state_if_active(cert.clone(), state.clone())?;
+                            self.update_state_if_active(cert.clone(), round.clone())?;
                         }
-                        state
+                        round
                     }
                 };
 
@@ -707,9 +691,9 @@ impl ShardedGossipLocal {
                 // XXX: TODO: come back to this later after implementing batching for
                 //      region gossip, for now I just don't care about the state,
                 //      and just want to handle the incoming ops.
-                // if (doing_historic_region_gossip || state.is_some()) && !ops.is_empty() {
-                self.incoming_missing_ops(ops).await?;
-                // }
+                if (state.is_some()) && !ops.is_empty() {
+                    self.incoming_missing_ops(ops).await?;
+                }
                 gossip
             }
             ShardedGossipWire::NoAgents(_) => {

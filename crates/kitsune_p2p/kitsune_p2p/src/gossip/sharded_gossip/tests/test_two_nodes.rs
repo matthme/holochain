@@ -141,7 +141,7 @@ async fn partial_missing_doesnt_finish() {
         ShardedGossipLocalStateBuilder::default()
             .round_map(
                 maplit::hashmap! {
-                    cert.clone() => RoundStateBuilder::default()
+                    cert.clone() => RoundInfoBuilder::default()
                         .remote_agent_list(vec![])
                         .common_arc_set(Arc::new(DhtArcSet::Full))
                         .num_sent_ops_blooms(1)
@@ -191,7 +191,7 @@ async fn missing_ops_finishes() {
         ShardedGossipLocalStateBuilder::default()
             .round_map(
                 maplit::hashmap! {
-                    cert.clone() => RoundStateBuilder::default()
+                    cert.clone() => RoundInfoBuilder::default()
                         .remote_agent_list(vec![])
                         .common_arc_set(Arc::new(DhtArcSet::Full))
                         .num_sent_ops_blooms(1)
@@ -242,7 +242,7 @@ async fn missing_ops_doesnt_finish_awaiting_bloom_responses() {
         ShardedGossipLocalStateBuilder::default()
             .round_map(
                 maplit::hashmap! {
-                    cert.clone() => RoundStateBuilder::default()
+                    cert.clone() => RoundInfoBuilder::default()
                         .remote_agent_list(vec![])
                         .common_arc_set(Arc::new(DhtArcSet::Full))
                         .num_sent_ops_blooms(1)
@@ -293,7 +293,7 @@ async fn bloom_response_finishes() {
         ShardedGossipLocalStateBuilder::default()
             .round_map(
                 maplit::hashmap! {
-                    cert.clone() => RoundStateBuilder::default()
+                    cert.clone() => RoundInfoBuilder::default()
                         .remote_agent_list(vec![])
                         .common_arc_set(Arc::new(DhtArcSet::Full))
                         .num_sent_ops_blooms(0)
@@ -344,7 +344,7 @@ async fn bloom_response_doesnt_finish_outstanding_incoming() {
         ShardedGossipLocalStateBuilder::default()
             .round_map(
                 maplit::hashmap! {
-                    cert.clone() => RoundStateBuilder::default()
+                    cert.clone() => RoundInfoBuilder::default()
                         .remote_agent_list(vec![])
                         .common_arc_set(Arc::new(DhtArcSet::Full))
                         .num_sent_ops_blooms(1)
@@ -398,7 +398,7 @@ async fn no_data_still_finishes() {
             .local_agents(maplit::hashset!(agents[0].0.clone()))
             .round_map(
                 maplit::hashmap! {
-                    bob_cert.clone() => RoundStateBuilder::default()
+                    bob_cert.clone() => RoundInfoBuilder::default()
                         .remote_agent_list(vec![])
                         .common_arc_set(Arc::new(DhtArcSet::Full))
                         .num_sent_ops_blooms(0)
@@ -423,7 +423,7 @@ async fn no_data_still_finishes() {
             .local_agents(maplit::hashset!(agents[1].0.clone()))
             .round_map(
                 maplit::hashmap! {
-                    alice_cert.clone() => RoundStateBuilder::default()
+                    alice_cert.clone() => RoundInfoBuilder::default()
                         .remote_agent_list(vec![])
                         .common_arc_set(Arc::new(DhtArcSet::Full))
                         .num_sent_ops_blooms(1)

@@ -2,13 +2,14 @@ use kitsune_p2p_types::combinators::second;
 
 use super::*;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 /// A queue of missing op hashes that have been batched
 /// for future processing.
 pub struct OpsBatchQueue(Share<OpsBatchQueueInner>);
 
 /// Each queue is associated with a bloom filter that
 /// this node received from the remote node and given an unique id.
+#[derive(Default)]
 struct OpsBatchQueueInner {
     /// A simple always increasing usize
     /// is used to give the queues unique ids.
@@ -38,7 +39,7 @@ impl ShardedGossipLocal {
     /// - Don't send a chunk larger then MAX_SEND_BUF_SIZE.
     pub(super) async fn incoming_ops(
         &self,
-        state: RoundState,
+        state: RoundInfo,
         mut remote_bloom: TimedBloomFilter,
         mut queue_id: Option<usize>,
     ) -> KitsuneResult<Vec<ShardedGossipWire>> {
@@ -73,7 +74,7 @@ impl ShardedGossipLocal {
     /// Generate the next batch of missing ops.
     pub(super) async fn next_missing_ops_batch(
         &self,
-        state: RoundState,
+        state: RoundInfo,
     ) -> KitsuneResult<Vec<ShardedGossipWire>> {
         // Pop the next queued batch.
         let next_batch = state
@@ -104,7 +105,7 @@ impl ShardedGossipLocal {
     /// and batch for future processing if there is too much data.
     async fn batch_missing_ops(
         &self,
-        state: RoundState,
+        state: RoundInfo,
         mut missing_hashes: Vec<Arc<KitsuneOpHash>>,
         mut queue_id: Option<usize>,
     ) -> KitsuneResult<Vec<ShardedGossipWire>> {
@@ -239,10 +240,7 @@ impl OpsBatchQueue {
 
 impl OpsBatchQueueInner {
     fn new() -> Self {
-        Self {
-            next_id: 0,
-            queues: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Push some queued missing ops hashes onto the back of a queue.

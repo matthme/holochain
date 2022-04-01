@@ -4,8 +4,8 @@ use super::*;
 #[derive(Default, Debug)]
 #[cfg_attr(feature = "test_utils", derive(Clone))]
 pub(super) struct RoundStateMap {
-    map: HashMap<StateKey, RoundState>,
-    timed_out: Vec<(StateKey, RoundState)>,
+    map: HashMap<StateKey, RoundInfo>,
+    timed_out: Vec<(StateKey, RoundInfo)>,
 }
 
 impl RoundStateMap {
@@ -24,25 +24,25 @@ impl RoundStateMap {
     }
 
     /// Get the state if it hasn't timed out.
-    pub(super) fn get(&mut self, key: &StateKey) -> Option<&RoundState> {
+    pub(super) fn get(&mut self, key: &StateKey) -> Option<&RoundInfo> {
         self.touch(key);
         self.map.get(key)
     }
 
     /// Get the mutable state if it hasn't timed out.
-    pub(super) fn get_mut(&mut self, key: &StateKey) -> Option<&mut RoundState> {
+    pub(super) fn get_mut(&mut self, key: &StateKey) -> Option<&mut RoundInfo> {
         self.touch(key);
         self.check_timeout(key);
         self.map.get_mut(key)
     }
 
     /// Remove the state.
-    pub(super) fn remove(&mut self, key: &StateKey) -> Option<RoundState> {
+    pub(super) fn remove(&mut self, key: &StateKey) -> Option<RoundInfo> {
         self.map.remove(key)
     }
 
     /// Insert new state and return the old state if there was any.
-    pub(super) fn insert(&mut self, key: StateKey, round_state: RoundState) -> Option<RoundState> {
+    pub(super) fn insert(&mut self, key: StateKey, round_state: RoundInfo) -> Option<RoundInfo> {
         self.map.insert(key, round_state)
     }
 
@@ -65,7 +65,7 @@ impl RoundStateMap {
     }
 
     /// Get all timed out rounds.
-    pub(super) fn take_timed_out_rounds(&mut self) -> Vec<(StateKey, RoundState)> {
+    pub(super) fn take_timed_out_rounds(&mut self) -> Vec<(StateKey, RoundInfo)> {
         std::mem::take(&mut self.timed_out)
     }
 
@@ -77,8 +77,8 @@ impl RoundStateMap {
     }
 }
 
-impl From<HashMap<StateKey, RoundState>> for RoundStateMap {
-    fn from(map: HashMap<StateKey, RoundState>) -> Self {
+impl From<HashMap<StateKey, RoundInfo>> for RoundStateMap {
+    fn from(map: HashMap<StateKey, RoundInfo>) -> Self {
         Self {
             map,
             ..Default::default()

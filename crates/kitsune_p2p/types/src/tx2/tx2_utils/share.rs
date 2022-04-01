@@ -1,6 +1,7 @@
 use crate::*;
 
 /// Synchronized droppable share-lock around internal state date.
+#[derive(Default)]
 pub struct Share<T: 'static + Send>(Arc<parking_lot::Mutex<Option<T>>>);
 
 impl<T: 'static + Send> Clone for Share<T> {

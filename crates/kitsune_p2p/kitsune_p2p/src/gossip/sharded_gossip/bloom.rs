@@ -13,7 +13,7 @@ impl ShardedGossipLocal {
     /// - Expect this function to complete in an average of 10 ms and worst case 100 ms.
     pub(super) async fn generate_agent_bloom(
         &self,
-        state: RoundState,
+        state: RoundInfo,
     ) -> KitsuneResult<Option<BloomFilter>> {
         // Get the time range for this gossip.
         // Get all the agent info that is within the common arc set.

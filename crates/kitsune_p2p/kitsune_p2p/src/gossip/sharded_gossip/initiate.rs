@@ -200,42 +200,43 @@ impl ShardedGossipLocal {
         local_arcs: Vec<DhtArcRange>,
         remote_arc_set: Vec<DhtArcRange>,
         gossip: &mut Vec<ShardedGossipWire>,
-    ) -> KitsuneResult<RoundState> {
+    ) -> KitsuneResult<RoundInfo> {
         // Create the common arc set from the remote and local arcs.
         let arc_set: DhtArcSet = local_arcs.into();
         let remote_arc_set: DhtArcSet = remote_arc_set.into();
         let common_arc_set = Arc::new(arc_set.intersection(&remote_arc_set));
 
-        let region_set = if let GossipType::Historical = self.gossip_type {
-            let region_set = store::query_region_set(
-                self.host_api.clone(),
-                self.space.clone(),
-                common_arc_set.clone(),
-            )
-            .await?;
-            gossip.push(ShardedGossipWire::op_regions(region_set.clone()));
-            Some(region_set)
-        } else {
-            None
-        };
-
-        // Generate the new state.
-        let mut state = self.new_state(remote_agent_list, common_arc_set, region_set)?;
-
-        // Generate the agent bloom.
-        if let GossipType::Recent = self.gossip_type {
-            let bloom = self.generate_agent_bloom(state.clone()).await?;
-            if let Some(bloom) = bloom {
-                let bloom = encode_bloom_filter(&bloom);
-                gossip.push(ShardedGossipWire::agents(bloom));
+        match self.gossip_type {
+            GossipType::Recent => {
+                let round = RoundInfoBuilder::default()
+                    .remote_agent_list(remote_agent_list)
+                    .common_arc_set(common_arc_set)
+                    .state(RoundStateRecent::default().into())
+                    .build()
+                    .unwrap();
+                let bloom = self.generate_agent_bloom(round.clone()).await?;
+                if let Some(bloom) = bloom {
+                    let bloom = encode_bloom_filter(&bloom);
+                    gossip.push(ShardedGossipWire::agents(bloom));
+                }
+                self.next_bloom_batch(round, gossip).await
             }
-            self.next_bloom_batch(state, gossip).await
-        } else {
-            // Everything has already been taken care of for Historical
-            // gossip already. Just mark this true so that the state will not
-            // be considered "finished" until all op data is received.
-            state.has_pending_historical_op_data = true;
-            Ok(state)
+            GossipType::Historical => {
+                let region_set = store::query_region_set(
+                    self.host_api.clone(),
+                    self.space.clone(),
+                    common_arc_set.clone(),
+                )
+                .await?;
+                gossip.push(ShardedGossipWire::op_regions(region_set.clone()));
+                let round = RoundInfoBuilder::default()
+                    .remote_agent_list(remote_agent_list)
+                    .common_arc_set(common_arc_set)
+                    .state(RoundStateHistorical::new(region_set).into())
+                    .build()
+                    .unwrap();
+                Ok(round)
+            }
         }
     }
 
@@ -247,9 +248,9 @@ impl ShardedGossipLocal {
     /// create a new partial batch of blooms.)
     pub(super) async fn next_bloom_batch(
         &self,
-        mut state: RoundState,
+        mut state: RoundInfo,
         gossip: &mut Vec<ShardedGossipWire>,
-    ) -> KitsuneResult<RoundState> {
+    ) -> KitsuneResult<RoundInfo> {
         // Get the default window for this gossip loop.
         let mut window = self.calculate_time_range();
 
