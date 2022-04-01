@@ -380,7 +380,6 @@ pub(crate) struct ShardedGossipTarget {
 }
 
 /// The internal mutable state for [`ShardedGossipLocal`]
-#[derive(Default)]
 pub struct ShardedGossipLocalState {
     /// The list of agents on this node
     local_agents: HashSet<Arc<KitsuneAgent>>,
@@ -390,6 +389,23 @@ pub struct ShardedGossipLocalState {
     /// Metrics that track remote node states and help guide
     /// the next node to gossip with.
     metrics: MetricsSync,
+    /// The in-memory cache of region data, which is updated when every new op
+    /// is integrated, and refreshed whenever local_agents or the current
+    /// time quantum changes. Used to query region data without needing
+    /// to ask the database.
+    region_set: RegionSetLtcs,
+}
+
+impl Default for ShardedGossipLocalState {
+    fn default() -> Self {
+        Self {
+            local_agents: Default::default(),
+            initiate_tgt: Default::default(),
+            round_map: Default::default(),
+            metrics: Default::default(),
+            region_set: RegionSetLtcs::empty(),
+        }
+    }
 }
 
 impl ShardedGossipLocalState {
