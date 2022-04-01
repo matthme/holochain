@@ -44,6 +44,7 @@ mod agents;
 mod bloom;
 mod initiate;
 mod ops;
+mod round_state;
 mod state;
 mod state_map;
 mod store;
@@ -51,6 +52,7 @@ mod store;
 mod bandwidth;
 mod next_target;
 
+pub use round_state::*;
 pub use state::*;
 
 // dead_code and unused_imports are allowed here because when compiling this
