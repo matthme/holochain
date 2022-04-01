@@ -1,9 +1,10 @@
 use futures::FutureExt;
 
-use crate::spawn::MockKitsuneP2pEventHandler;
+use crate::{spawn::MockKitsuneP2pEventHandler, NOISE};
 
 use super::*;
 use crate::fixt::*;
+use arbitrary::Arbitrary;
 use fixt::prelude::*;
 
 mod bloom;
@@ -12,14 +13,15 @@ mod test_two_nodes;
 
 impl ShardedGossipLocal {
     /// Create an instance suitable for testing
-    pub fn test(
+    pub(super) fn test(
         gossip_type: GossipType,
         evt_sender: EventSender,
         host: HostApi,
         inner: ShardedGossipLocalState,
     ) -> Self {
-        // TODO: randomize space
-        let space = Arc::new(KitsuneSpace::new([0; 36].to_vec()));
+        let mut u = arbitrary::Unstructured::new(&NOISE);
+        let space = KitsuneSpace::arbitrary(&mut u).unwrap();
+        let space = Arc::new(space);
         Self {
             gossip_type,
             tuning_params: Default::default(),

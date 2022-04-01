@@ -10,10 +10,10 @@ impl ShardedGossipLocal {
         // Get local agents
         let (has_target, local_agents) = self.inner.share_mut(|i, _| {
             i.check_tgt_expired();
-            let has_target = i.initiate_tgt.is_some();
+            let has_target = i.initiate_tgt().is_some();
             // Clear any expired rounds.
-            i.round_map.current_rounds();
-            Ok((has_target, i.local_agents.clone()))
+            i.current_rounds();
+            Ok((has_target, i.local_agents().clone()))
         })?;
         // There's already a target so there's nothing to do.
         if has_target {
@@ -66,7 +66,7 @@ impl ShardedGossipLocal {
                         url: url.clone(),
                     };
 
-                    inner.initiate_tgt = Some(tgt);
+                    inner.set_initiate_tgt(tgt);
 
                     Some((cert, HowToConnect::Url(url), gossip))
                 } else {
@@ -89,13 +89,17 @@ impl ShardedGossipLocal {
     ) -> KitsuneResult<Vec<ShardedGossipWire>> {
         let (local_agents, same_as_target, already_in_progress) =
             self.inner.share_mut(|i, _| {
-                let already_in_progress = i.round_map.round_exists(&peer_cert);
+                let already_in_progress = i.round_exists(&peer_cert);
                 let same_as_target = i
-                    .initiate_tgt
+                    .initiate_tgt()
                     .as_ref()
                     .filter(|tgt| tgt.cert == peer_cert)
                     .map(|tgt| tgt.tie_break);
-                Ok((i.local_agents.clone(), same_as_target, already_in_progress))
+                Ok((
+                    i.local_agents().clone(),
+                    same_as_target,
+                    already_in_progress,
+                ))
             })?;
 
         // The round is already in progress from our side.
@@ -117,7 +121,7 @@ impl ShardedGossipLocal {
                 return Ok(Vec::with_capacity(0));
             } else {
                 self.inner.share_mut(|i, _| {
-                    i.initiate_tgt = None;
+                    i.clear_initiate_tgt();
                     Ok(())
                 })?;
             }
@@ -159,11 +163,11 @@ impl ShardedGossipLocal {
             .await?;
 
         self.inner.share_mut(|inner, _| {
-            inner.round_map.insert(peer_cert.clone(), state);
+            inner.add_round(peer_cert.clone(), state);
             // If this is not the target we are accepting
             // then record it as a remote round.
             if inner
-                .initiate_tgt
+                .initiate_tgt()
                 .as_ref()
                 .map_or(true, |tgt| tgt.cert != peer_cert)
             {
@@ -254,7 +258,7 @@ impl ShardedGossipLocal {
             window.start = cursor;
         }
         let blooms = self
-            .generate_ops_blooms_for_time_window(&state.common_arc_set, window)
+            .generate_ops_blooms_for_time_window(&state.common_arc_set(), window)
             .await?;
 
         let blooms = match blooms {

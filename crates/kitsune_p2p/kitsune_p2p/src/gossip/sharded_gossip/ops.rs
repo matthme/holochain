@@ -44,7 +44,7 @@ impl ShardedGossipLocal {
     ) -> KitsuneResult<Vec<ShardedGossipWire>> {
         // Check which ops are missing.
         let missing_hashes = self
-            .check_ops_bloom((*state.common_arc_set).clone(), &remote_bloom)
+            .check_ops_bloom((*state.common_arc_set()).clone(), &remote_bloom)
             .await?;
 
         let missing_hashes = match missing_hashes {
@@ -254,6 +254,10 @@ impl OpsBatchQueueInner {
             self.next_id += 1;
             id
         });
+
+        // the id must always be one that we've generated before
+        debug_assert!(id < self.next_id);
+
         {
             let queue = self.queues.entry(id).or_insert_with(VecDeque::new);
             queue.push_back(queued);

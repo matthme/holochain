@@ -2,6 +2,7 @@ use super::*;
 
 /// Map of gossip round state that checks for timed out rounds on gets.
 #[derive(Default, Debug)]
+#[cfg_attr(feature = "test_utils", derive(Clone))]
 pub(super) struct RoundStateMap {
     map: HashMap<StateKey, RoundState>,
     timed_out: Vec<(StateKey, RoundState)>,
@@ -12,7 +13,7 @@ impl RoundStateMap {
     pub(super) fn check_timeout(&mut self, key: &StateKey) -> bool {
         let mut timed_out = false;
         if let Some(state) = self.map.get(key) {
-            if state.last_touch.elapsed() > state.round_timeout {
+            if state.last_touch().elapsed() > state.round_timeout() {
                 if let Some(v) = self.map.remove(key) {
                     self.timed_out.push((key.clone(), v));
                 }
@@ -48,7 +49,7 @@ impl RoundStateMap {
     /// Get the set of current rounds and remove any expired rounds.
     pub(super) fn current_rounds(&mut self) -> HashSet<Tx2Cert> {
         for (k, v) in std::mem::take(&mut self.map) {
-            if v.last_touch.elapsed() < v.round_timeout {
+            if v.last_touch().elapsed() < v.round_timeout() {
                 self.map.insert(k, v);
             } else {
                 self.timed_out.push((k, v));
