@@ -2149,6 +2149,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "holochain_node"
+version = "0.1.0"
+dependencies = [
+ "chashmap",
+ "derive_more",
+ "holo_hash",
+ "holochain_integrity_types",
+ "holochain_keystore",
+ "tokio",
+]
+
+[[package]]
 name = "holochain_p2p"
 version = "0.0.34"
 dependencies = [

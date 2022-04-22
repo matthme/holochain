@@ -154,6 +154,12 @@ pub enum Op {
     },
 }
 
+impl Op {
+    fn _into_element(self) -> Element {
+        todo!()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, SerializedBytes)]
 #[cfg_attr(feature = "test_utils", derive(arbitrary::Arbitrary))]
 /// Either a [`Header::Create`] or a [`Header::Update`].
