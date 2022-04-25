@@ -1,6 +1,12 @@
 use hdk::prelude::*;
 
-entry_defs![Path::entry_def(), PathEntry::entry_def()];
+#[hdk_entry(id = "foo")]
+#[derive(Clone)]
+pub struct FooEntry {
+    content: String
+}
+
+entry_defs![Path::entry_def(), PathEntry::entry_def() ,FooEntry::entry_def()];
 
 fn path(s: &str) -> ExternResult<AnyLinkableHash> {
     let path = Path::from(s);
@@ -141,4 +147,21 @@ fn commit_existing_path(_: ()) -> ExternResult<()> {
 #[hdk_extern]
 fn get_long_path(_: ()) -> ExternResult<Vec<Link>> {
     Path::from("a").children()
+}
+
+#[hdk_extern]
+fn children_paths(_: ()) -> ExternResult<Vec<Path>> {
+    let path = Path::from("a.c");
+    path.ensure()?;
+    let path = Path::from("a.b");
+    path.ensure()?;
+
+    let path = Path::from("a");
+    let anchor_hash = path.path_entry_hash()?;
+
+    let foo = FooEntry{content:"foo".to_string()};
+    let hash = hash_entry(&foo)?;
+    create_entry(&foo)?;
+    create_link(anchor_hash, hash.clone(), HdkLinkType::Any, ())?;
+    path.children_paths()
 }

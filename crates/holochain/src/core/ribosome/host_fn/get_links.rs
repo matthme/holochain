@@ -285,4 +285,16 @@ pub mod slow_tests {
         let links: Vec<hdk::prelude::Link> = conductor.call(&alice, "get_long_path", ()).await;
         assert_eq!(links.len(), 1);
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn children_paths_test() {
+        observability::test_run().ok();
+        let RibosomeTestFixture {
+            conductor, alice, ..
+        } = RibosomeTestFixture::new(TestWasm::Link).await;
+
+        let paths: Vec<hdk::prelude::Path> = conductor.call(&alice, "children_paths", ()).await;
+        assert_eq!(paths.len(), 2);
+    }
+
 }
