@@ -233,7 +233,7 @@ pub mod tests {
             .unwrap();
         let mut conductor = SweetConductor::from_standard_config().await;
         let keystore = conductor.keystore();
-        let app = conductor.setup_app("app", &[dna]).await.unwrap();
+        let app = conductor.setup_app("app", [dna]).await.unwrap();
         let (cell,) = app.into_tuple();
         let zome = cell.zome("create_entry");
 
@@ -267,7 +267,7 @@ pub mod tests {
                 .unwrap();
         let mut conductor = SweetConductor::from_standard_config().await;
         let keystore = conductor.keystore();
-        let app = conductor.setup_app("app", &[dna]).await.unwrap();
+        let app = conductor.setup_app("app", [dna]).await.unwrap();
         let (cell,) = app.into_tuple();
         let zome = cell.zome("create_entry");
 
@@ -311,7 +311,7 @@ pub mod tests {
 
         let mut conductor = SweetConductor::from_standard_config().await;
         let keystore = conductor.keystore();
-        let app = conductor.setup_app("app", &[dna]).await.unwrap();
+        let app = conductor.setup_app("app", [dna]).await.unwrap();
         let (cell,) = app.into_tuple();
         let zome = cell.zome("no-init");
 

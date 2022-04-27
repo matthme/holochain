@@ -603,8 +603,8 @@ pub mod wasm_test {
             let apps = conductor
                 .setup_app_for_agents(
                     "app-",
-                    &[alice_pubkey.clone(), bob_pubkey.clone()],
-                    &[dna_file.clone().into()],
+                    [alice_pubkey.clone(), bob_pubkey.clone()],
+                    [dna_file.clone()],
                 )
                 .await
                 .unwrap();

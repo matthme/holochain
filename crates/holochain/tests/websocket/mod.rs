@@ -223,7 +223,7 @@ async fn remote_signals() -> anyhow::Result<()> {
         .0;
 
     let apps = conductors
-        .setup_app_for_zipped_agents("app", &all_agents, &[dna_file])
+        .setup_app_for_zipped_agents("app", &all_agents, [dna_file])
         .await
         .unwrap();
 
@@ -594,7 +594,7 @@ async fn full_state_dump_cursor_works() {
         .0;
 
     let app = conductor
-        .setup_app_for_agent("app", agent, &[dna_file])
+        .setup_app_for_agent("app", agent, [dna_file])
         .await
         .unwrap();
 

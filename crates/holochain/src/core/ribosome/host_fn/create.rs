@@ -249,7 +249,7 @@ pub mod wasm_test {
             .await
             .unwrap();
 
-        let app = conductor.setup_app("app", &[dna]).await.unwrap();
+        let app = conductor.setup_app("app", [dna]).await.unwrap();
         let (cell,) = app.into_tuple();
 
         let _: () = conductor

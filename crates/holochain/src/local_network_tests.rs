@@ -36,7 +36,7 @@ async fn conductors_call_remote(num_conductors: usize) {
         .await
         .unwrap();
     let mut conductors = SweetConductorBatch::from_standard_config(num_conductors).await;
-    let apps = conductors.setup_app("app", &[dna]).await.unwrap();
+    let apps = conductors.setup_app("app", [dna]).await.unwrap();
     let cells: Vec<_> = apps
         .into_inner()
         .into_iter()

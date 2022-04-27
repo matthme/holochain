@@ -21,6 +21,21 @@ use tempfile::TempDir;
 /// A stream of signals.
 pub type SignalStream = Box<dyn tokio_stream::Stream<Item = Signal> + Send + Sync + Unpin>;
 
+/// A DnaFile paired with a MembraneProof. Useful for its From impls.
+pub struct DnaWithProof(DnaFile, Option<MembraneProof>);
+
+impl From<DnaFile> for DnaWithProof {
+    fn from(d: DnaFile) -> Self {
+        Self(d, None)
+    }
+}
+
+impl From<(DnaFile, Option<MembraneProof>)> for DnaWithProof {
+    fn from((d, p): (DnaFile, Option<MembraneProof>)) -> Self {
+        Self(d, p)
+    }
+}
+
 /// A useful Conductor abstraction for testing, allowing startup and shutdown as well
 /// as easy installation of apps across multiple Conductors and Agents.
 ///
@@ -196,16 +211,16 @@ impl SweetConductor {
         &mut self,
         installed_app_id: &str,
         agent: AgentPubKey,
-        dna_files: &[&DnaFile],
+        dna_payloads: &[DnaWithProof],
     ) -> ConductorApiResult<()> {
         let installed_app_id = installed_app_id.to_string();
 
-        let installed_cells = dna_files
+        let installed_cells = dna_payloads
             .iter()
-            .map(|&dna| {
+            .map(|DnaWithProof(dna, proof)| {
                 let cell_handle = format!("{}", dna.dna_hash());
                 let cell_id = CellId::new(dna.dna_hash().clone(), agent.clone());
-                (InstalledCell::new(cell_id, cell_handle), None)
+                (InstalledCell::new(cell_id, cell_handle), proof.clone())
             })
             .collect();
         self.handle()
@@ -251,19 +266,25 @@ impl SweetConductor {
 
     /// Opinionated app setup.
     /// Creates an app for the given agent, using the given DnaFiles, with no extra configuration.
-    pub async fn setup_app_for_agent<'a, D>(
+    pub async fn setup_app_for_agent<I, D>(
         &mut self,
         installed_app_id: &str,
         agent: AgentPubKey,
-        dna_files: D,
+        dna_files: I,
     ) -> ConductorApiResult<SweetApp>
     where
-        D: IntoIterator<Item = &'a DnaFile>,
+        I: IntoIterator<Item = D>,
+        DnaWithProof: From<D>,
     {
-        let dna_files: Vec<_> = dna_files.into_iter().collect();
+        let dna_payloads: Vec<_> = dna_files.into_iter().map(DnaWithProof::from).collect();
+        let dna_files: Vec<_> = dna_payloads.iter().map(|p| &p.0).collect();
         self.setup_app_1_register_dna(dna_files.as_slice()).await?;
-        self.setup_app_2_install_and_enable(installed_app_id, agent.clone(), dna_files.as_slice())
-            .await?;
+        self.setup_app_2_install_and_enable(
+            installed_app_id,
+            agent.clone(),
+            dna_payloads.as_slice(),
+        )
+        .await?;
 
         self.handle()
             .0
@@ -271,21 +292,22 @@ impl SweetConductor {
             .reconcile_cell_status_with_app_status()
             .await?;
 
-        let dna_files = dna_files.iter().map(|d| d.dna_hash().clone());
-        self.setup_app_3_create_sweet_app(installed_app_id, agent, dna_files)
+        let dna_hashes = dna_files.iter().map(|d| d.dna_hash().clone());
+        self.setup_app_3_create_sweet_app(installed_app_id, agent, dna_hashes)
             .await
     }
 
     /// Opinionated app setup.
     /// Creates an app using the given DnaFiles, with no extra configuration.
     /// An AgentPubKey will be generated, and is accessible via the returned SweetApp.
-    pub async fn setup_app<'a, D>(
+    pub async fn setup_app<D, I>(
         &mut self,
         installed_app_id: &str,
-        dna_files: D,
+        dna_files: I,
     ) -> ConductorApiResult<SweetApp>
     where
-        D: IntoIterator<Item = &'a DnaFile>,
+        I: IntoIterator<Item = D>,
+        DnaWithProof: From<D>,
     {
         let agent = SweetAgents::one(self.keystore()).await;
         self.setup_app_for_agent(installed_app_id, agent, dna_files)
@@ -301,25 +323,28 @@ impl SweetConductor {
     /// - AppRoleId: {dna_hash}
     ///
     /// Returns a batch of SweetApps, sorted in the same order as Agents passed in.
-    pub async fn setup_app_for_agents<'a, A, D>(
+    pub async fn setup_app_for_agents<A, D, I>(
         &mut self,
         app_id_prefix: &str,
         agents: A,
-        dna_files: D,
+        dnas: I,
     ) -> ConductorApiResult<SweetAppBatch>
     where
-        A: IntoIterator<Item = &'a AgentPubKey>,
-        D: IntoIterator<Item = &'a DnaFile>,
+        A: IntoIterator<Item = AgentPubKey>,
+        I: IntoIterator<Item = D>,
+        DnaWithProof: From<D>,
     {
         let agents: Vec<_> = agents.into_iter().collect();
-        let dna_files: Vec<_> = dna_files.into_iter().collect();
+        let dna_payloads: Vec<_> = dnas.into_iter().map(DnaWithProof::from).collect();
+        let dna_files: Vec<_> = dna_payloads.iter().map(|p| &p.0).collect();
+
         self.setup_app_1_register_dna(dna_files.as_slice()).await?;
-        for &agent in agents.iter() {
+        for agent in agents.iter() {
             let installed_app_id = format!("{}{}", app_id_prefix, agent);
             self.setup_app_2_install_and_enable(
                 &installed_app_id,
                 agent.to_owned(),
-                dna_files.as_slice(),
+                dna_payloads.as_slice(),
             )
             .await?;
         }

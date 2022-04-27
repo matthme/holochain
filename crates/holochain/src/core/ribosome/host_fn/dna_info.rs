@@ -62,8 +62,8 @@ pub mod test {
         let apps = conductor
             .setup_app_for_agents(
                 "app-",
-                &[alice_pubkey.clone(), bob_pubkey.clone()],
-                &[dna_file.into()],
+                [alice_pubkey.clone(), bob_pubkey.clone()],
+                [dna_file],
             )
             .await
             .unwrap();

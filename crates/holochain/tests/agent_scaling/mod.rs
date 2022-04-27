@@ -49,7 +49,7 @@ async fn many_agents_can_reach_consistency_agent_links() {
 
     let agents = SweetAgents::get(conductor.keystore(), NUM_AGENTS).await;
     let apps = conductor
-        .setup_app_for_agents("app", &agents, &[dna_file])
+        .setup_app_for_agents("app", agents, [dna_file])
         .await
         .unwrap();
     let cells = apps.cells_flattened();
@@ -100,7 +100,7 @@ async fn many_agents_can_reach_consistency_normal_links() {
 
     let agents = SweetAgents::get(conductor.keystore(), NUM_AGENTS).await;
     let apps = conductor
-        .setup_app_for_agents("app", &agents, &[dna_file])
+        .setup_app_for_agents("app", agents, [dna_file])
         .await
         .unwrap();
     let cells = apps.cells_flattened();
@@ -136,7 +136,7 @@ async fn stuck_conductor_wasm_calls() -> anyhow::Result<()> {
 
     // Install DNA and install and enable apps in conductor
     let alice = conductor
-        .setup_app("app", &[dna_file])
+        .setup_app("app", [dna_file])
         .await
         .unwrap()
         .into_cells()

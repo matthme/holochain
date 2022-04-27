@@ -197,7 +197,7 @@ async fn setup() -> (Producer, Consumer, Others) {
             ..Default::default()
         });
     }
-    let apps = conductors.setup_app("app", &[dna]).await.unwrap();
+    let apps = conductors.setup_app("app", [dna]).await.unwrap();
     let mut cells = apps
         .into_inner()
         .into_iter()

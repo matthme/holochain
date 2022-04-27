@@ -56,7 +56,7 @@ async fn fullsync_sharded_gossip() -> anyhow::Result<()> {
         .await
         .unwrap();
 
-    let apps = conductors.setup_app("app", &[dna_file]).await.unwrap();
+    let apps = conductors.setup_app("app", [dna_file]).await.unwrap();
     conductors.exchange_peer_info().await;
 
     let ((alice,), (bobbo,)) = apps.into_tuples();
@@ -119,12 +119,12 @@ async fn fullsync_sharded_local_gossip() -> anyhow::Result<()> {
         .unwrap();
 
     let alice = conductor
-        .setup_app("app", &[dna_file.clone()])
+        .setup_app("app", [dna_file.clone()])
         .await
         .unwrap();
 
     let (alice,) = alice.into_tuple();
-    let bobbo = conductor.setup_app("app2 ", &[dna_file]).await.unwrap();
+    let bobbo = conductor.setup_app("app2 ", [dna_file]).await.unwrap();
 
     let (bobbo,) = bobbo.into_tuple();
 
@@ -566,7 +566,7 @@ async fn mock_network_sharded_gossip() {
 
     // Install the real agent alice.
     let apps = conductor
-        .setup_app("app", &[dna_file.clone()])
+        .setup_app("app", [dna_file.clone()])
         .await
         .unwrap();
 
@@ -1053,7 +1053,7 @@ async fn mock_network_sharding() {
 
     // Install the real agent alice.
     let apps = conductor
-        .setup_app("app", &[dna_file.clone()])
+        .setup_app("app", [dna_file.clone()])
         .await
         .unwrap();
 

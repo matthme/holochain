@@ -226,7 +226,7 @@ pub mod wasm_test {
         let (alice, bob) = SweetAgents::two(conductor.keystore()).await;
 
         let apps = conductor
-            .setup_app_for_agents("app", &[alice.clone(), bob.clone()], &[dna_file.into()])
+            .setup_app_for_agents("app", [alice.clone(), bob.clone()], [dna_file])
             .await
             .unwrap();
         let ((alice,), (_bobbo,)) = apps.into_tuples();
@@ -235,7 +235,7 @@ pub mod wasm_test {
             .await
             .unwrap();
         let apps = conductor
-            .setup_app_for_agents("app2", &[bob.clone()], &[dna_file.into()])
+            .setup_app_for_agents("app2", [bob.clone()], [dna_file])
             .await
             .unwrap();
         let ((bobbo2,),) = apps.into_tuples();

@@ -3,9 +3,12 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
 - Docs: Fix intra-doc links in all crates [#1323](https://github.com/holochain/holochain/pull/1323)
 - Update legacy lair to 0.0.10 - allowing "panicky" flag [#1349](https://github.com/holochain/holochain/pull/1349)
 - Udpate lair to 0.1.1 - allowing usage in path with whitespace [#1349](https://github.com/holochain/holochain/pull/1349)
+- BREAKING: in Sweettest, all `setup_app_*` methods can now accept MembraneProofs.
+Instead of a slice of DnaFiles, these methods now take any `IntoIterator` of either `DnaFile` or `(DnaFile, Option<MembraneProof>)`. The former implies `None` as MembraneProof. The breaking change is that the collection passed in must be owned, rather than a reference: you shouldn't have to do more than remove a `&`. Methods which take a collection of `AgentPubKeys` like `setup_app_for_agents` also now take an owned collection rather than a slice.
 
 ## 0.0.136
 
@@ -242,7 +245,7 @@ keystore:
 
 ## 0.0.102
 
-### Known Issues :exclamation:
+### Known Issues :exclamation
 
 - We’ve become aware of a bug that locks up the conductor when installing happ bundles or registering DNA via the admin API concurrently. Please perform these actions sequentially until we’ve resolved the bug.
 

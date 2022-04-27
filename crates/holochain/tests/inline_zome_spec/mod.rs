@@ -105,7 +105,7 @@ async fn inline_zome_2_agents_1_dna() -> anyhow::Result<()> {
 
     // Install DNA and install and enable apps in conductor
     let apps = conductor
-        .setup_app_for_agents("app", &[alice.clone(), bobbo.clone()], &[dna_file])
+        .setup_app_for_agents("app", [alice.clone(), bobbo.clone()], [dna_file])
         .await
         .unwrap();
 
@@ -154,7 +154,7 @@ async fn inline_zome_3_agents_2_dnas() -> anyhow::Result<()> {
     let agents = SweetAgents::get(conductor.keystore(), 3).await;
 
     let apps = conductor
-        .setup_app_for_agents("app", &agents, &[dna_foo, dna_bar])
+        .setup_app_for_agents("app", agents, [dna_foo, dna_bar])
         .await
         .unwrap();
 
@@ -236,9 +236,9 @@ async fn invalid_cell() -> anyhow::Result<()> {
 
     // let agents = SweetAgents::get(conductor.keystore(), 2).await;
 
-    let _app_foo = conductor.setup_app("foo", &[dna_foo]).await;
+    let _app_foo = conductor.setup_app("foo", [dna_foo]).await;
 
-    let _app_bar = conductor.setup_app("bar", &[dna_bar]).await;
+    let _app_bar = conductor.setup_app("bar", [dna_bar]).await;
 
     // Give small amount of time for cells to join the network
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
@@ -267,7 +267,7 @@ async fn get_deleted() -> anyhow::Result<()> {
 
     // Install DNA and install and enable apps in conductor
     let alice = conductor
-        .setup_app("app", &[dna_file])
+        .setup_app("app", [dna_file])
         .await
         .unwrap()
         .into_cells()
@@ -325,7 +325,7 @@ async fn signal_subscription() {
         .await
         .unwrap();
     let mut conductor = SweetConductor::from_config(Default::default()).await;
-    let app = conductor.setup_app("app", &[dna_file]).await.unwrap();
+    let app = conductor.setup_app("app", [dna_file]).await.unwrap();
     let zome = &app.cells()[0].zome("zome1");
 
     let signals = conductor.signals().take(N);
@@ -382,7 +382,7 @@ async fn simple_validation() -> anyhow::Result<()> {
     let mut conductor = SweetConductor::from_standard_config().await;
     let (alice, bobbo) = SweetAgents::two(conductor.keystore()).await;
     let apps = conductor
-        .setup_app_for_agents("app", &[alice.clone(), bobbo.clone()], &[dna_file])
+        .setup_app_for_agents("app", [alice.clone(), bobbo.clone()], [dna_file])
         .await
         .unwrap();
     let ((alice,), (bobbo,)) = apps.into_tuples();
@@ -442,7 +442,7 @@ async fn can_call_real_zomes_too() {
     .unwrap();
 
     let app = conductor
-        .setup_app_for_agent("app1", agent.clone(), &[dna.clone()])
+        .setup_app_for_agent("app1", agent.clone(), [dna.clone()])
         .await
         .unwrap();
 
@@ -466,7 +466,7 @@ async fn insert_source_chain() {
         .unwrap();
     let mut conductor = SweetConductor::from_standard_config().await;
     let apps = conductor
-        .setup_app("app", &[dna_file.clone()])
+        .setup_app("app", [dna_file.clone()])
         .await
         .unwrap();
     let (alice,) = apps.into_tuple();
@@ -674,7 +674,7 @@ async fn insert_source_chain() {
         .expect("Can cold start");
 
     let apps = conductor
-        .setup_app_for_agent("cold_start", alice.agent_pubkey().clone(), &[dna_file])
+        .setup_app_for_agent("cold_start", alice.agent_pubkey().clone(), [dna_file])
         .await
         .unwrap();
     let (alice_backup,) = apps.into_tuple();
@@ -710,7 +710,7 @@ async fn call_non_existing_zome_fails_gracefully() -> anyhow::Result<()> {
 
     // Install DNA and install and enable apps in conductor
     let app = conductor
-        .setup_app_for_agent("app1", agent.clone(), &[dna_file.clone()])
+        .setup_app_for_agent("app1", agent.clone(), [dna_file.clone()])
         .await
         .unwrap();
 

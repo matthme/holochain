@@ -384,7 +384,7 @@ async fn create_test_data(
     dbg!("Installing apps");
 
     let apps = conductor
-        .setup_app_for_agents("app", &agents, &[dna_file.clone()])
+        .setup_app_for_agents("app", agents, [dna_file.clone()])
         .await
         .unwrap();
 

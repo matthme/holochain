@@ -126,7 +126,7 @@ mod tests {
         .unwrap();
 
         let apps = conductors
-            .setup_app_for_zipped_agents("app", &agents, &[dna_file.clone().into()])
+            .setup_app_for_zipped_agents("app", agents, [dna_file.clone()])
             .await
             .unwrap();
 

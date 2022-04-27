@@ -18,7 +18,7 @@ async fn sys_validation_agent_activity_test() {
         .await
         .unwrap();
 
-    let apps = conductors.setup_app("app", &[dna_file]).await.unwrap();
+    let apps = conductors.setup_app("app", [dna_file]).await.unwrap();
     let ((cell_1,), (cell_2,)) = apps.into_tuples();
 
     let a: HeaderHash = conductors[0]

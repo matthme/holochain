@@ -40,7 +40,7 @@ async fn test_publish() -> anyhow::Result<()> {
         .await
         .unwrap();
 
-    let apps = conductors.setup_app("app", &[dna_file]).await.unwrap();
+    let apps = conductors.setup_app("app", [dna_file]).await.unwrap();
     conductors.exchange_peer_info().await;
 
     let ((alice,), (bobbo,), (carol,)) = apps.into_tuples();
@@ -79,7 +79,7 @@ async fn multi_conductor() -> anyhow::Result<()> {
         .await
         .unwrap();
 
-    let apps = conductors.setup_app("app", &[dna_file]).await.unwrap();
+    let apps = conductors.setup_app("app", [dna_file]).await.unwrap();
     conductors.exchange_peer_info().await;
 
     let ((alice,), (bobbo,), (_carol,)) = apps.into_tuples();
@@ -149,12 +149,15 @@ async fn sharded_consistency() {
         .unwrap();
     let dnas = vec![dna_file];
 
-    let apps = conductors.setup_app("app", &dnas).await.unwrap();
+    let apps = conductors.setup_app("app", dnas.clone()).await.unwrap();
 
     let ((alice,), (bobbo,), (_carol,)) = apps.into_tuples();
 
     for i in 0..NUM_CELLS {
-        conductors.setup_app(&i.to_string(), &dnas).await.unwrap();
+        conductors
+            .setup_app(&i.to_string(), dnas.clone())
+            .await
+            .unwrap();
     }
     conductors.exchange_peer_info().await;
     conductors.force_all_publish_dht_ops().await;
@@ -215,7 +218,7 @@ async fn private_entries_dont_leak() {
         .unwrap();
     let dnas = vec![dna_file];
 
-    let apps = conductors.setup_app("app", &dnas).await.unwrap();
+    let apps = conductors.setup_app("app", dnas).await.unwrap();
 
     let ((alice,), (bobbo,)) = apps.into_tuples();
 

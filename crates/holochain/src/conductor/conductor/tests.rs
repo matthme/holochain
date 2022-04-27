@@ -242,11 +242,11 @@ async fn test_list_running_apps_for_cell_id() {
     let mut conductor = SweetConductor::from_standard_config().await;
     let alice = SweetAgents::one(conductor.keystore()).await;
     let app1 = conductor
-        .setup_app_for_agent("app1", alice.clone(), &[dna1.clone(), dna2])
+        .setup_app_for_agent("app1", alice.clone(), [dna1.clone(), dna2])
         .await
         .unwrap();
     let app2 = conductor
-        .setup_app_for_agent("app2", alice.clone(), &[dna1, dna3])
+        .setup_app_for_agent("app2", alice.clone(), [dna1, dna3])
         .await
         .unwrap();
 
@@ -306,7 +306,7 @@ async fn common_genesis_test_app(
 
     // Install both DNAs under the same app:
     conductor
-        .setup_app(&"app", &[dna_hardcoded, dna_custom])
+        .setup_app(&"app", [dna_hardcoded, dna_custom])
         .await
 }
 
@@ -385,7 +385,7 @@ async fn test_signing_error_during_genesis() {
         .unwrap();
 
     let result = conductor
-        .setup_app_for_agents(&"app", &[fixt!(AgentPubKey)], &[dna])
+        .setup_app_for_agents(&"app", [fixt!(AgentPubKey)], [dna])
         .await;
 
     // - Assert that we got an error during Genesis. However, this test is
@@ -452,12 +452,12 @@ async fn test_signing_error_during_genesis_doesnt_bork_interfaces() {
         .unwrap();
 
     let app1 = conductor
-        .setup_app_for_agent("app1", agent1.clone(), &[dna.clone()])
+        .setup_app_for_agent("app1", agent1.clone(), [dna.clone()])
         .await
         .unwrap();
 
     let app2 = conductor
-        .setup_app_for_agent("app2", agent2.clone(), &[dna.clone()])
+        .setup_app_for_agent("app2", agent2.clone(), [dna.clone()])
         .await
         .unwrap();
 
@@ -806,7 +806,7 @@ async fn test_cell_and_app_status_reconciliation() {
     ];
     let app_id = "app".to_string();
     let mut conductor = SweetConductor::from_standard_config().await;
-    conductor.setup_app(&app_id, &dnas).await.unwrap();
+    conductor.setup_app(&app_id, dnas).await.unwrap();
 
     let cell_ids = conductor.list_cell_ids(None);
     let cell1 = &cell_ids[0..1];
@@ -875,9 +875,9 @@ async fn test_app_status_filters() {
 
     let mut conductor = SweetConductor::from_standard_config().await;
 
-    conductor.setup_app("running", &dnas).await.unwrap();
-    conductor.setup_app("paused", &dnas).await.unwrap();
-    conductor.setup_app("disabled", &dnas).await.unwrap();
+    conductor.setup_app("running", dnas.clone()).await.unwrap();
+    conductor.setup_app("paused", dnas.clone()).await.unwrap();
+    conductor.setup_app("disabled", dnas).await.unwrap();
 
     // put apps in the proper states for testing
 
@@ -955,7 +955,7 @@ async fn test_init_concurrency() {
         });
     let dnas = [mk_dna("zome", zome).await.unwrap().0];
     let mut conductor = SweetConductor::from_standard_config().await;
-    let app = conductor.setup_app("app", &dnas).await.unwrap();
+    let app = conductor.setup_app("app", dnas).await.unwrap();
     let (cell,) = app.into_tuple();
     let conductor = Arc::new(conductor);
 

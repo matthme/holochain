@@ -26,7 +26,7 @@ async fn gossip_test() {
         .await
         .unwrap();
 
-    let apps = conductors.setup_app("app", &[dna_file]).await.unwrap();
+    let apps = conductors.setup_app("app", [dna_file]).await.unwrap();
     let ((cell_1,), (cell_2,)) = apps.into_tuples();
     conductors.exchange_peer_info().await;
 
@@ -77,7 +77,7 @@ async fn agent_info_test() {
         .await
         .unwrap();
 
-    let apps = conductors.setup_app("app", &[dna_file]).await.unwrap();
+    let apps = conductors.setup_app("app", [dna_file]).await.unwrap();
     let ((cell_1,), (cell_2,)) = apps.into_tuples();
     conductors.exchange_peer_info().await;
 
