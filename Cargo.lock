@@ -2974,7 +2974,7 @@ dependencies = [
  "ghost_actor 0.3.0-alpha.4",
  "kitsune_p2p_dht_arc",
  "lair_keystore_api 0.0.9",
- "lair_keystore_api 0.1.0",
+ "lair_keystore_api 0.1.1",
  "lru",
  "mockall 0.10.2",
  "nanoid 0.3.0",
@@ -3041,9 +3041,9 @@ dependencies = [
 
 [[package]]
 name = "lair_keystore_api"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "821c3eed9a5a27a9e225fcd0ecb340ef810a4078b6b0207bb26daee0744d963c"
+checksum = "600142edf1ab2ca63e5606cc88b30611c9adc51748d7d12e94410abacd3c750a"
 dependencies = [
  "base64",
  "dunce",
