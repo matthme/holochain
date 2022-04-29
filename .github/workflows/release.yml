@@ -639,7 +639,11 @@ jobs:
             "state":env.STATUS,
             "target_url":env.WORKFLOW_RUN_URL,
             "description":"release workflow completed",
-            "context":"github-actions/relelase-holochain"
+            "context":"github-actions/relelase-holochain",
+            "commit": {
+              "sha": env.GITHUB_SHA,
+              "url": ("https://api.github.com/repos/holochain/holochain/commits/" + env.GITHUB_SHA")
+            }
           }')
           curl -L -X POST \
             -H "Content-Type: application/json" \
