@@ -12,6 +12,14 @@ impl AppEntryBytes {
     pub fn into_sb(self) -> SerializedBytes {
         self.0
     }
+
+    /// Construct from bytes, unchecked.
+    /// IMPORTANT: make sure this remains test-only! This exists only
+    /// to be able to write tests involving entries which exceed the size limit.
+    #[cfg(feature = "test_utils")]
+    pub fn new(bytes: SerializedBytes) -> Self {
+        Self(bytes)
+    }
 }
 
 impl AsRef<SerializedBytes> for AppEntryBytes {
