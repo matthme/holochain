@@ -218,7 +218,7 @@ impl MetaLairClient {
                     .await
                     .map_err(one_err::OneErr::new),
                 Self::NewLair(client) => {
-                    const ONE_CERT: &str = "SingleHcTlsWkaCert";
+                    const ONE_CERT: &str = env!("CARGO_PKG_VERSION");
                     let info = match client.get_entry(ONE_CERT.into()).await {
                         Ok(info) => match info {
                             LairEntryInfo::WkaTlsCert { cert_info, .. } => cert_info,
