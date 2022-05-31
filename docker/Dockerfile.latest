@@ -1,5 +1,7 @@
 FROM nixos/nix:latest
 
+RUN git config --global --unset url.ssh://git@github.com:.insteadof
+
 WORKDIR /holochain/build
 ENV NIX_ENV_PREFIX /holochain/build
 ENV NIXPKGS_ALLOW_UNFREE 1
