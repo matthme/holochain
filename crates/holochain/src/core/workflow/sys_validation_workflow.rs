@@ -7,6 +7,7 @@ use crate::conductor::space::Space;
 use crate::conductor::ConductorHandle;
 use crate::core::queue_consumer::TriggerSender;
 use crate::core::queue_consumer::WorkComplete;
+use crate::core::ribosome::RibosomeT;
 use crate::core::sys_validate::check_and_hold_store_record;
 use crate::core::sys_validate::*;
 use crate::core::validation::*;
@@ -310,6 +311,10 @@ async fn validate_op_inner(
     conductor_handle: &dyn ConductorHandleT,
     incoming_dht_ops_sender: Option<IncomingDhtOpSender>,
 ) -> SysValidationResult<()> {
+    let dna_hash = network.dna_hash();
+    let ribosome = conductor_handle
+        .get_ribosome(dna_hash)
+        .map_err(|_| SysValidationError::DnaMissing(dna_hash.clone()))?;
     match op {
         DhtOp::StoreRecord(_, action, entry) => {
             store_record(action, workspace, network.clone()).await?;
@@ -317,10 +322,9 @@ async fn validate_op_inner(
                 // Retrieve for all other actions on countersigned entry.
                 if let Entry::CounterSign(session_data, _) = &**entry {
                     let entry_hash = EntryHash::with_data_sync(&**entry);
-                    let weight = action
-                        .entry_rate_data()
-                        .ok_or_else(|| SysValidationError::NonEntryAction(action.clone()))?;
-                    for action in session_data.build_action_set(entry_hash, weight)? {
+                    for action in session_data.build_action_set(entry_hash)? {
+                        let action =
+                            ribosome.weigh_countersigning_action(action, (**entry).clone())?;
                         let hh = ActionHash::with_data_sync(&action);
                         if workspace
                             .full_cascade(network.clone())
@@ -352,11 +356,8 @@ async fn validate_op_inner(
             if let Entry::CounterSign(session_data, _) = &**entry {
                 let dependency_check = |_original_record: &Record| Ok(());
                 let entry_hash = EntryHash::with_data_sync(&**entry);
-                let weight = match action {
-                    NewEntryAction::Create(h) => h.weight.clone(),
-                    NewEntryAction::Update(h) => h.weight.clone(),
-                };
-                for action in session_data.build_action_set(entry_hash, weight)? {
+                for action in session_data.build_action_set(entry_hash)? {
+                    let action = ribosome.weigh_countersigning_action(action, (**entry).clone())?;
                     check_and_hold_store_record(
                         &ActionHash::with_data_sync(&action),
                         workspace,
@@ -526,23 +527,24 @@ async fn sys_validate_record_inner(
 
     match maybe_entry {
         Some(Entry::CounterSign(session, _)) => {
-            if let Some(weight) = action.entry_rate_data() {
-                let entry_hash = EntryHash::with_data_sync(maybe_entry.unwrap());
-                for action in session.build_action_set(entry_hash, weight)? {
-                    validate(
-                        &action,
-                        maybe_entry,
-                        workspace,
-                        network.clone(),
-                        conductor_handle,
-                    )
-                    .await?;
-                }
-                Ok(())
-            } else {
-                tracing::error!("Got countersigning entry without rate assigned. This should be impossible. But, let's see what happens.");
-                validate(action, maybe_entry, workspace, network, conductor_handle).await
+            let entry = maybe_entry.unwrap();
+            let entry_hash = EntryHash::with_data_sync(entry);
+            let dna_hash = network.dna_hash();
+            let ribosome = conductor_handle
+                .get_ribosome(dna_hash)
+                .map_err(|_| SysValidationError::DnaMissing(dna_hash.clone()))?;
+            for action in session.build_action_set(entry_hash)? {
+                let action = ribosome.weigh_countersigning_action(action, entry.clone())?;
+                validate(
+                    &action.into(),
+                    maybe_entry,
+                    workspace,
+                    network.clone(),
+                    conductor_handle,
+                )
+                .await?;
             }
+            Ok(())
         }
         _ => validate(action, maybe_entry, workspace, network, conductor_handle).await,
     }

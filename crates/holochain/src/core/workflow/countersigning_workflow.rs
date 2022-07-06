@@ -12,15 +12,16 @@ use holochain_state::prelude::{
 };
 use holochain_types::dht_op::DhtOp;
 use holochain_types::signal::{Signal, SystemSignal};
-use holochain_zome_types::Timestamp;
 use holochain_zome_types::{Entry, SignedAction, ZomeCallResponse};
+use holochain_zome_types::{Timestamp, UnweighedCountersigningAction};
 use kitsune_p2p_types::tx2::tx2_utils::Share;
 use rusqlite::{named_params, Transaction};
 
 use crate::conductor::interface::SignalBroadcaster;
 use crate::conductor::space::Space;
 use crate::core::queue_consumer::{QueueTriggers, TriggerSender, WorkComplete};
-use crate::core::ribosome::weigh_placeholder;
+use crate::core::ribosome::real_ribosome::RealRibosome;
+use crate::core::ribosome::RibosomeT;
 
 use holochain_p2p::event::CountersigningSessionNegotiationMessage;
 
@@ -58,6 +59,7 @@ pub(crate) fn incoming_countersigning(
     ops: Vec<(DhtOpHash, DhtOp)>,
     workspace: &CountersigningWorkspace,
     trigger: TriggerSender,
+    ribosome: &RealRibosome,
 ) -> WorkflowResult<()> {
     let mut should_trigger = false;
 
@@ -70,20 +72,20 @@ pub(crate) fn incoming_countersigning(
             if let Entry::CounterSign(session_data, _) = entry.as_ref() {
                 let entry_hash = EntryHash::with_data_sync(&**entry);
                 // Get the required actions for this session.
-                let weight = weigh_placeholder();
-                let action_set = session_data.build_action_set(entry_hash, weight)?;
+                let action_set = session_data.build_action_set(entry_hash)?;
 
                 // Get the expires time for this session.
                 let expires = *session_data.preflight_request().session_times.end();
 
                 // Get the entry hash from an action.
                 // If the actions have different entry hashes they will fail validation.
-                if let Some(entry_hash) = action_set.first().and_then(|h| h.entry_hash().cloned()) {
+                if let Some(entry_hash) = action_set.first().map(|h| h.entry_hash().clone()) {
                     // Hash the required actions.
-                    let required_actions: Vec<_> = action_set
-                        .into_iter()
-                        .map(|h| ActionHash::with_data_sync(&h))
-                        .collect();
+                    let mut required_actions = vec![];
+                    for h in action_set {
+                        let h = ribosome.weigh_countersigning_action(h, (**entry).to_owned())?;
+                        required_actions.push(ActionHash::with_data_sync(&h));
+                    }
 
                     // Check if already timed out.
                     if holochain_zome_types::Timestamp::now() < expires {
@@ -234,7 +236,7 @@ pub(crate) async fn countersigning_success(
     // Hash actions.
     let incoming_actions: Vec<_> = signed_actions
         .iter()
-        .map(|SignedAction(h, _)| ActionHash::with_data_sync(h))
+        .map(|SignedAction(h, _)| UnweighedCountersigningAction::from_action(h.clone()))
         .collect();
 
     let result = authored_db
@@ -245,13 +247,11 @@ pub(crate) async fn countersigning_success(
             if let Some((cs_entry_hash, cs)) = current_countersigning_session(txn, Arc::new(author.clone()))? {
                 // Check we have the right session.
                 if cs_entry_hash == entry_hash {
-                    let weight = weigh_placeholder();
-                    let stored_actions = cs.build_action_set(entry_hash, weight)?;
+                    let stored_actions = cs.build_action_set(entry_hash)?;
                     if stored_actions.len() == incoming_actions.len() {
                         // Check all stored action hashes match an incoming action hash.
                         if stored_actions.iter().all(|h| {
-                            let h = ActionHash::with_data_sync(h);
-                            incoming_actions.iter().any(|i| *i == h)
+                            incoming_actions.iter().any(|i| i.as_ref() == Some(h))
                         }) {
                             // All checks have passed so unlock the chain.
                             mutations::unlock_chain(txn, &author)?;

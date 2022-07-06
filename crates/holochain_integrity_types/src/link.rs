@@ -1,6 +1,11 @@
 use crate::ZomeId;
 use holochain_serialized_bytes::prelude::*;
 
+/// 1kb limit on LinkTags.
+/// Tags are used as keys to the database to allow
+/// fast lookup so they should be small.
+pub const MAX_TAG_SIZE: usize = 1000;
+
 #[derive(
     Debug,
     Copy,

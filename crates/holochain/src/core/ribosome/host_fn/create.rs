@@ -11,7 +11,7 @@ use std::sync::Arc;
 /// create record
 #[allow(clippy::extra_unused_lifetimes)]
 pub fn create<'a>(
-    _ribosome: Arc<impl RibosomeT>,
+    ribosome: Arc<impl RibosomeT>,
     call_context: Arc<CallContext>,
     input: CreateInput,
 ) -> Result<ActionHash, RuntimeError> {
@@ -23,31 +23,45 @@ pub fn create<'a>(
             let CreateInput {
                 entry_location,
                 entry_visibility,
-                entry,
+                ref entry,
                 chain_top_ordering,
             } = input;
 
-            let weight = weigh_placeholder();
+            // build the entry hash
+            let entry_hash = EntryHash::with_data_sync(entry);
 
             // Countersigned entries have different action handling.
             match entry {
-                Entry::CounterSign(_, _) => tokio_helper::block_forever_on(async move {
-                    call_context
-                        .host_context
-                        .workspace_write()
-                        .source_chain()
-                        .as_ref()
-                        .expect("Must have source chain if write_workspace access is given")
-                        .put_countersigned(entry, chain_top_ordering, weight)
-                        .await
-                        .map_err(|source_chain_error| -> RuntimeError {
-                            wasm_error!(WasmErrorInner::Host(source_chain_error.to_string())).into()
-                        })
-                }),
-                _ => {
-                    // build the entry hash
-                    let entry_hash = EntryHash::with_data_sync(&entry);
+                Entry::CounterSign(ref session_data, _) => {
+                    tokio_helper::block_forever_on(async move {
+                        let source_chain = call_context
+                            .host_context
+                            .workspace_write()
+                            .source_chain()
+                            .as_ref()
+                            .expect("Must have source chain if write_workspace access is given");
 
+                        let unweighed = UnweighedCountersigningAction::from_countersigning_data(
+                            entry_hash,
+                            session_data,
+                            (*source_chain.author()).clone(),
+                        )
+                        .map_err(|e| wasm_error!(WasmErrorInner::Host(e.to_string())))?;
+
+                        let action = ribosome
+                            .weigh_countersigning_action(unweighed, entry.clone())
+                            .map_err(|e| wasm_error!(WasmErrorInner::Host(e.to_string())))?;
+
+                        source_chain
+                            .put_with_action(action.into(), Some(entry.clone()), chain_top_ordering)
+                            .await
+                            .map_err(|source_chain_error| {
+                                wasm_error!(WasmErrorInner::Host(source_chain_error.to_string()))
+                                    .into()
+                            })
+                    })
+                }
+                _ => {
                     // extract the entry defs for a zome
                     let entry_type = match entry_location {
                         EntryDefLocation::App(AppEntryDefLocation {
@@ -80,7 +94,7 @@ pub fn create<'a>(
                             .source_chain()
                             .as_ref()
                             .expect("Must have source chain if write_workspace access is given")
-                            .put_weightless(action_builder, Some(entry), chain_top_ordering)
+                            .put_weightless(action_builder, Some(entry.clone()), chain_top_ordering)
                             .await
                             .map_err(|source_chain_error| -> RuntimeError {
                                 wasm_error!(WasmErrorInner::Host(source_chain_error.to_string()))

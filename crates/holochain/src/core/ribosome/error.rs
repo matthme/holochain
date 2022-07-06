@@ -72,6 +72,10 @@ pub enum RibosomeError {
 
     /// ident
     #[error(transparent)]
+    CounterSigningError(#[from] CounterSigningError),
+
+    /// ident
+    #[error(transparent)]
     JoinError(#[from] JoinError),
 
     /// ident
@@ -81,6 +85,13 @@ pub enum RibosomeError {
     /// ident
     #[error(transparent)]
     P2pError(#[from] holochain_p2p::HolochainP2pError),
+
+    /// ident
+    #[error("xsalsa20poly1305 error {0}")]
+    Aead(String),
+
+    #[error("Can't find zome for entry type: {0:?}")]
+    NoZomeForEntryType(EntryType),
 
     /// ident
     #[error(transparent)]

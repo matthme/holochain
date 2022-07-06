@@ -434,26 +434,43 @@ pub struct UpdateBase {
     entry_type: EntryType,
 }
 
-impl Action {
-    /// Construct an Action from the ActionBase and associated session data.
+/// An unweighed action calculated from a countersigning session
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UnweighedCountersigningAction {
+    /// A Create action (without weight)
+    Create(Create<()>),
+    /// An Update action (without weight)
+    Update(Update<()>),
+}
+
+impl UnweighedCountersigningAction {
+    /// Add a weight to this unweighed action
+    pub fn weighed(self, weight: EntryRateWeight) -> EntryCreationAction {
+        match self {
+            Self::Create(h) => EntryCreationAction::Create(h.weighed(weight)),
+            Self::Update(h) => EntryCreationAction::Update(h.weighed(weight)),
+        }
+    }
+
+    /// Construct a Action from the ActionBase and associated session data.
     pub fn from_countersigning_data(
         entry_hash: EntryHash,
         session_data: &CounterSigningSessionData,
         author: AgentPubKey,
-        weight: EntryRateWeight,
     ) -> Result<Self, CounterSigningError> {
         let agent_state = session_data.agent_state_for_agent(&author)?;
-        Ok(match &session_data.preflight_request().action_base {
-            ActionBase::Create(base) => Action::Create(Create {
+        let preflight = session_data.preflight_request();
+        Ok(match preflight.action_base() {
+            ActionBase::Create(base) => Self::Create(Create {
                 author,
                 timestamp: session_data.to_timestamp(),
                 action_seq: agent_state.action_seq + 1,
                 prev_action: agent_state.chain_top.clone(),
                 entry_type: base.entry_type.clone(),
-                weight,
+                weight: (),
                 entry_hash,
             }),
-            ActionBase::Update(base) => Action::Update(Update {
+            ActionBase::Update(base) => Self::Update(Update {
                 author,
                 timestamp: session_data.to_timestamp(),
                 action_seq: agent_state.action_seq + 1,
@@ -461,10 +478,36 @@ impl Action {
                 original_action_address: base.original_action_address.clone(),
                 original_entry_address: base.original_entry_address.clone(),
                 entry_type: base.entry_type.clone(),
-                weight,
+                weight: (),
                 entry_hash,
             }),
         })
+    }
+
+    /// If the action is Create or Update, convert to a weight-erased
+    /// [`UnweighedCountersigningAction`]
+    pub fn from_action(action: Action) -> Option<Self> {
+        match action {
+            Action::Create(h) => Some(Self::Create(h.unweighed())),
+            Action::Update(h) => Some(Self::Update(h.unweighed())),
+            _ => None,
+        }
+    }
+
+    /// Access the entry hash
+    pub fn entry_hash(&self) -> &EntryHash {
+        match self {
+            Self::Create(h) => &h.entry_hash,
+            Self::Update(h) => &h.entry_hash,
+        }
+    }
+
+    /// Access the entry type
+    pub fn entry_type(&self) -> &EntryType {
+        match self {
+            Self::Create(h) => &h.entry_type,
+            Self::Update(h) => &h.entry_type,
+        }
     }
 }
 
@@ -528,16 +571,14 @@ impl CounterSigningSessionData {
     pub fn build_action_set(
         &self,
         entry_hash: EntryHash,
-        weight: EntryRateWeight,
-    ) -> Result<Vec<Action>, CounterSigningError> {
+    ) -> Result<Vec<UnweighedCountersigningAction>, CounterSigningError> {
         let mut actions = vec![];
         let mut build_actions = |countersigning_agents: &CounterSigningAgents| -> Result<(), _> {
             for (agent, _role) in countersigning_agents.iter() {
-                actions.push(Action::from_countersigning_data(
+                actions.push(UnweighedCountersigningAction::from_countersigning_data(
                     entry_hash.clone(),
                     self,
                     agent.clone(),
-                    weight.clone(),
                 )?);
             }
             Ok(())

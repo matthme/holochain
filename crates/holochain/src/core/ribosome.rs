@@ -589,7 +589,7 @@ pub trait RibosomeT: Sized + std::fmt::Debug + Send + Sync {
 
     fn run_weigh(
         &self,
-        host_access: WeighHostAccess,
+        // host_access: WeighHostAccess,
         invocation: WeighInvocation,
     ) -> RibosomeResult<WeighResult>;
 
@@ -602,6 +602,29 @@ pub trait RibosomeT: Sized + std::fmt::Debug + Send + Sync {
     ) -> RibosomeResult<ZomeCallResponse>;
 
     fn zome_types(&self) -> &Arc<GlobalZomeTypes>;
+
+    /// Convenience function to weigh an unweighed countersigning action
+    fn weigh_countersigning_action(
+        &self,
+        h: UnweighedCountersigningAction,
+        entry: Entry,
+    ) -> RibosomeResult<EntryCreationAction> {
+        // TODO: use serialized entry as input
+        let zome = match h.entry_type() {
+            EntryType::App(aet) => self.find_zome_from_entry(&aet.id),
+            _ => None,
+        }
+        .ok_or_else(|| RibosomeError::NoZomeForEntryType(h.entry_type().clone()))?;
+
+        let entry_size = SerializedBytes::try_from(&entry)?.bytes().len();
+        let input = match &h {
+            UnweighedCountersigningAction::Create(h) => WeighInput::Create(h.clone(), entry),
+            UnweighedCountersigningAction::Update(h) => WeighInput::Update(h.clone(), entry),
+        };
+        let weight = RateWeight::from(self.run_weigh(WeighInvocation::new(zome, input))?);
+        let weight = EntryRateWeight::from_weight_and_size(weight, entry_size);
+        Ok(h.weighed(weight))
+    }
 }
 
 /// Placeholder for weighing. Currently produces zero weight.

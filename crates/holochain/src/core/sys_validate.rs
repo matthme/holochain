@@ -27,15 +27,6 @@ mod error;
 #[cfg(test)]
 mod tests;
 
-/// 16mb limit on Entries due to websocket limits.
-/// Consider splitting large entries up.
-pub const MAX_ENTRY_SIZE: usize = 16_000_000;
-
-/// 1kb limit on LinkTags.
-/// Tags are used as keys to the database to allow
-/// fast lookup so they should be small.
-pub const MAX_TAG_SIZE: usize = 1000;
-
 /// Verify the signature for this action
 pub async fn verify_action_signature(sig: &Signature, action: &Action) -> SysValidationResult<()> {
     if action.author().verify_signature(sig, action).await {
@@ -60,21 +51,19 @@ pub fn check_countersigning_session_data_contains_action(
     session_data: &CounterSigningSessionData,
     action: NewEntryActionRef<'_>,
 ) -> SysValidationResult<()> {
-    let weight = match action {
-        NewEntryActionRef::Create(h) => h.weight.clone(),
-        NewEntryActionRef::Update(h) => h.weight.clone(),
-    };
     let action_is_in_session = session_data
-        .build_action_set(entry_hash, weight)
+        .build_action_set(entry_hash)
         .map_err(SysValidationError::from)?
         .iter()
         .any(|session_action| match (&action, session_action) {
-            (NewEntryActionRef::Create(create), Action::Create(session_create)) => {
-                create == &session_create
-            }
-            (NewEntryActionRef::Update(update), Action::Update(session_update)) => {
-                update == &session_update
-            }
+            (
+                NewEntryActionRef::Create(create),
+                UnweighedCountersigningAction::Create(session_create),
+            ) => (*create).to_owned().unweighed() == *session_create,
+            (
+                NewEntryActionRef::Update(update),
+                UnweighedCountersigningAction::Update(session_update),
+            ) => (*update).to_owned().unweighed() == *session_update,
             _ => false,
         });
     if !action_is_in_session {
