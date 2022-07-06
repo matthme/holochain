@@ -481,5 +481,6 @@ fn set_zome_types(entries: &[(u8, u8)], links: &[(u8, u8)]) {
                 .map(|(z, types)| (ZomeId(*z), (0..*types).map(|t| LinkType(t)).collect()))
                 .collect(),
         ),
+        rate_limits: Default::default(),
     }));
 }

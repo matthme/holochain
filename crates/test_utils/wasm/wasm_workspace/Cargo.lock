@@ -1994,6 +1994,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_wasm_rate_limits"
+version = "0.0.1"
+dependencies = [
+ "hdk",
+ "serde",
+]
+
+[[package]]
 name = "test_wasm_schedule"
 version = "0.0.1"
 dependencies = [

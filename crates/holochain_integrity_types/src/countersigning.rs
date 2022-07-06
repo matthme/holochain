@@ -460,7 +460,7 @@ impl UnweighedCountersigningAction {
     ) -> Result<Self, CounterSigningError> {
         let agent_state = session_data.agent_state_for_agent(&author)?;
         let preflight = session_data.preflight_request();
-        Ok(match preflight.action_base() {
+        Ok(match &preflight.action_base {
             ActionBase::Create(base) => Self::Create(Create {
                 author,
                 timestamp: session_data.to_timestamp(),

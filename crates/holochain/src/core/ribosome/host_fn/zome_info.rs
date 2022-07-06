@@ -89,6 +89,7 @@ pub mod test {
             ScopedZomeTypesSet {
                 entries: ScopedZomeTypes(entries),
                 links: ScopedZomeTypes(links),
+                rate_limits: Default::default(),
             }
         );
     }

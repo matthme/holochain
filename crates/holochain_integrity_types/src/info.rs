@@ -5,6 +5,7 @@ use crate::EntryDefIndex;
 use crate::EntryDefs;
 use crate::FunctionName;
 use crate::LinkType;
+use crate::RateBucketId;
 use holo_hash::DnaHash;
 use holochain_serialized_bytes::prelude::*;
 
@@ -68,6 +69,8 @@ pub struct ScopedZomeTypesSet {
     pub entries: ScopedZomeTypes<EntryDefIndex>,
     /// All the entry [`LinkType`]s in scope for this zome.
     pub links: ScopedZomeTypes<LinkType>,
+    /// All the rate limiting buckets defined across the DNA.
+    pub rate_limits: ScopedZomeTypes<RateBucketId>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]

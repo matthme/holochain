@@ -19,6 +19,7 @@ fn make_scope(entries: &[(u8, u8)], links: &[(u8, u8)]) -> ScopedZomeTypesSet {
     ScopedZomeTypesSet {
         entries: ScopedZomeTypes(entries),
         links: ScopedZomeTypes(links),
+        rate_limits: Default::default(),
     }
 }
 

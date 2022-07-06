@@ -64,7 +64,12 @@ impl GlobalZomeTypes {
             .iter()
             .filter_map(|zome_id| self.links.get_key_value(zome_id).map(|(z, l)| (*z, *l)));
         let links = new_scope(links);
-        ScopedZomeTypesSet { entries, links }
+        let rate_limits = todo!("get rate limits");
+        ScopedZomeTypesSet {
+            entries,
+            links,
+            rate_limits,
+        }
     }
 }
 
