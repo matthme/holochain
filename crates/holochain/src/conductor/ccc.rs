@@ -1,5 +1,7 @@
 #![allow(missing_docs)]
 
+use parking_lot::Mutex;
+
 use holo_hash::ActionHash;
 use holochain_zome_types::ActionHashed;
 
@@ -20,12 +22,16 @@ pub struct CCCSyncData<A> {
 
 pub type TxnId = u32;
 
-pub trait CCCItem<H>: PartialEq + Eq + std::fmt::Debug {
-    fn prev_hash(&self) -> Option<&H>;
-    fn hash(&self) -> &H;
+pub trait CCCItem: PartialEq + Eq + std::fmt::Debug {
+    type Hash;
+
+    fn prev_hash(&self) -> Option<&Self::Hash>;
+    fn hash(&self) -> &Self::Hash;
 }
 
-impl CCCItem<ActionHash> for ActionHashed {
+impl CCCItem for ActionHashed {
+    type Hash = ActionHash;
+
     fn prev_hash(&self) -> Option<&ActionHash> {
         self.prev_action()
     }
@@ -36,19 +42,53 @@ impl CCCItem<ActionHash> for ActionHashed {
     }
 }
 
-trait CCC<H: PartialEq + Eq + std::fmt::Debug, A: CCCItem<H>> {
+trait CCC {
+    // type Hash: PartialEq + Eq + std::fmt::Debug;
+    type Item: CCCItem;
+
     fn next_transaction_id(&self) -> TxnId;
 
-    fn add_transaction(&self, txn_id: TxnId, actions: Vec<A>) -> Result<(), Transactions<A>>;
+    fn add_transaction(
+        &self,
+        txn_id: TxnId,
+        actions: Vec<Self::Item>,
+    ) -> Result<(), Transactions<Self::Item>>;
 
-    fn get_transactions_since_id(&self, txn_id: TxnId) -> Transactions<A>;
+    fn get_transactions_since_id(&self, txn_id: TxnId) -> Transactions<Self::Item>;
+}
+
+/// A local Rust implementation of a CCC, for testing purposes only.
+pub struct LocalCCC<A: CCCItem> {
+    transactions: Mutex<Transactions<A>>,
+}
+
+impl<A: CCCItem> Default for LocalCCC<A> {
+    fn default() -> Self {
+        Self {
+            transactions: Mutex::new(Default::default()),
+        }
+    }
+}
+
+impl<A: CCCItem> CCC for LocalCCC<A> {
+    type Item = A;
+
+    fn next_transaction_id(&self) -> TxnId {
+        todo!()
+    }
+
+    fn add_transaction(&self, txn_id: TxnId, actions: Vec<A>) -> Result<(), Transactions<A>> {
+        todo!()
+    }
+
+    fn get_transactions_since_id(&self, txn_id: TxnId) -> Transactions<A> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use parking_lot::Mutex;
 
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct TestItem {
@@ -65,7 +105,9 @@ mod tests {
         }
     }
 
-    impl CCCItem<u32> for TestItem {
+    impl CCCItem for TestItem {
+        type Hash = u32;
+
         fn prev_hash(&self) -> Option<&u32> {
             self.prev_hash.as_ref()
         }
@@ -75,33 +117,9 @@ mod tests {
         }
     }
 
-    /// A local Rust implementation of a CCC, for testing purposes only.
-    #[derive(Default)]
-    pub struct TestCCC {
-        transactions: Mutex<Transactions<TestItem>>,
-    }
-
-    impl CCC<u32, TestItem> for TestCCC {
-        fn next_transaction_id(&self) -> TxnId {
-            todo!()
-        }
-
-        fn add_transaction(
-            &self,
-            txn_id: TxnId,
-            actions: Vec<TestItem>,
-        ) -> Result<(), Transactions<TestItem>> {
-            todo!()
-        }
-
-        fn get_transactions_since_id(&self, txn_id: TxnId) -> Transactions<TestItem> {
-            todo!()
-        }
-    }
-
     #[tokio::test(flavor = "multi_thread")]
     async fn test_add_transaction() {
-        let ccc = TestCCC::default();
+        let ccc = LocalCCC::default();
         assert_eq!(ccc.next_transaction_id(), 0);
 
         let t0: Vec<TestItem> = vec![1.into(), 2.into(), 3.into()];
