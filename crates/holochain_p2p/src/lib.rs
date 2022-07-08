@@ -133,6 +133,14 @@ pub trait HolochainP2pDnaT {
 
     /// New data has been integrated and is ready for gossiping.
     async fn new_integrated_data(&self) -> actor::HolochainP2pResult<()>;
+
+    /// Attempt to update the CCC's head
+    async fn ccc_sync(
+        &self,
+        actions: Vec<SignedHashed<Action>>,
+    ) -> actor::HolochainP2pResult<Option<ActionHash>> {
+        todo!()
+    }
 }
 
 /// A wrapper around HolochainP2pSender that partially applies the dna_hash / agent_pub_key.

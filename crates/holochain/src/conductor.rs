@@ -34,6 +34,8 @@ pub mod paths;
 pub mod ribosome_store;
 pub mod space;
 pub mod state;
+#[cfg(feature = "ccc")]
+pub mod ccc;
 
 pub use cell::error::CellError;
 pub use cell::Cell;

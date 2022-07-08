@@ -78,6 +78,9 @@ where
         let flushed_actions: Vec<SignedActionHashed> = HostFnWorkspace::from(workspace.clone())
             .flush(&network)
             .await?;
+
+        // Q: what is the purpose of checking for an empty chain? When would this ever happen? The chain should
+        //    be genesis'd by now, right?
         if !is_empty {
             match countersigning_op {
                 Some(op) => {

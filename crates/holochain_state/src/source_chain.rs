@@ -260,6 +260,7 @@ impl SourceChain {
         network: &(dyn HolochainP2pDnaT + Send + Sync),
     ) -> SourceChainResult<Vec<SignedActionHashed>> {
         // Nothing to write
+
         if self.scratch.apply(|s| s.is_empty())? {
             return Ok(Vec::new());
         }
@@ -303,18 +304,33 @@ impl SourceChain {
                     schedule_fn(txn, author.as_ref(), scheduled_fn, None, now)?;
                 }
                 // As at check.
-                let (new_persisted_head, new_head_seq, new_timestamp) =
+                let (latest_head, latest_head_seq, new_timestamp) =
                     chain_head_db(txn, author.clone())?;
                 if actions.last().is_none() {
                     // Nothing to write
                     return Ok(Vec::new());
                 }
-                if persisted_head != new_persisted_head {
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "ccc")] {
+                        let ccc_head = network.ccc_sync(actions.clone()).await?;
+                        if ccc_head != latest_head {
+                            todo!("lock the chain and trigger a chain restore from CCC");
+                            return Err(SourceChainError::CCCHeadMoved(
+                                actions,
+                                entries,
+                                Some(persisted_head),
+                                Some((latest_head, latest_head_seq, new_timestamp)),
+                            ))
+                        }
+                    }
+                }
+
+                if persisted_head != latest_head {
                     return Err(SourceChainError::HeadMoved(
                         actions,
                         entries,
                         Some(persisted_head),
-                        Some((new_persisted_head, new_head_seq, new_timestamp)),
+                        Some((latest_head, latest_head_seq, new_timestamp)),
                     ));
                 }
 
@@ -353,7 +369,7 @@ impl SourceChain {
                 actions,
                 entries,
                 old_head,
-                Some((new_persisted_head, new_head_seq, new_timestamp)),
+                Some((new_persisted_head, latest_head_seq, new_timestamp)),
             )) => {
                 let is_relaxed =
                     self.scratch
@@ -376,7 +392,7 @@ impl SourceChain {
                         &keystore,
                         actions,
                         new_persisted_head,
-                        new_head_seq,
+                        latest_head_seq,
                         new_timestamp,
                     )
                     .await?;
@@ -394,7 +410,7 @@ impl SourceChain {
                         actions,
                         entries,
                         old_head,
-                        Some((new_persisted_head, new_head_seq, new_timestamp)),
+                        Some((new_persisted_head, latest_head_seq, new_timestamp)),
                     ))
                 }
             }
