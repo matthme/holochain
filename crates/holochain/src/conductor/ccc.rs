@@ -20,13 +20,13 @@ pub struct CCCSyncData<A> {
     transactions: Transactions<A>,
 }
 
-pub type TxnId = u32;
+pub type TxnId = usize;
 
-pub trait CCCItem: PartialEq + Eq + std::fmt::Debug {
-    type Hash;
+pub trait CCCItem: Clone + PartialEq + Eq + std::fmt::Debug {
+    type Hash: PartialEq + Eq;
 
     fn prev_hash(&self) -> Option<&Self::Hash>;
-    fn hash(&self) -> &Self::Hash;
+    fn as_hash(&self) -> &Self::Hash;
 }
 
 impl CCCItem for ActionHashed {
@@ -36,9 +36,8 @@ impl CCCItem for ActionHashed {
         self.prev_action()
     }
 
-    fn hash(&self) -> &ActionHash {
-        use holo_hash::HasHash;
-        self.as_hash()
+    fn as_hash(&self) -> &ActionHash {
+        <ActionHashed as holo_hash::HasHash<_>>::as_hash(self)
     }
 }
 
@@ -48,11 +47,7 @@ trait CCC {
 
     fn next_transaction_id(&self) -> TxnId;
 
-    fn add_transaction(
-        &self,
-        txn_id: TxnId,
-        actions: Vec<Self::Item>,
-    ) -> Result<(), Transactions<Self::Item>>;
+    fn add_transaction(&self, txn_id: TxnId, actions: Vec<Self::Item>) -> Result<(), CCCError>;
 
     fn get_transactions_since_id(&self, txn_id: TxnId) -> Transactions<Self::Item>;
 }
@@ -70,21 +65,40 @@ impl<A: CCCItem> Default for LocalCCC<A> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CCCError {
+    WrongTransactionId,
+    HashMismatch,
+}
+
 impl<A: CCCItem> CCC for LocalCCC<A> {
     type Item = A;
 
     fn next_transaction_id(&self) -> TxnId {
-        todo!()
+        self.transactions.lock().len().into()
     }
 
-    fn add_transaction(&self, txn_id: TxnId, actions: Vec<A>) -> Result<(), Transactions<A>> {
-        todo!()
+    fn add_transaction(&self, txn_id: TxnId, actions: Vec<A>) -> Result<(), CCCError> {
+        let mut txns = self.transactions.lock();
+        if txns.len() != txn_id {
+            return Err(CCCError::WrongTransactionId);
+        }
+        let last = txns.last().and_then(|t| t.last());
+        if let (Some(last), Some(next)) = (last, actions.first()) {
+            if next.prev_hash() != Some(last.as_hash()) {
+                return Err(CCCError::HashMismatch);
+            }
+        }
+        (*txns).push(actions);
+        Ok(())
     }
 
     fn get_transactions_since_id(&self, txn_id: TxnId) -> Transactions<A> {
-        todo!()
+        self.transactions.lock()[txn_id..].to_vec()
     }
 }
+
+impl<A: CCCItem> LocalCCC<A> {}
 
 #[cfg(test)]
 mod tests {
@@ -112,7 +126,7 @@ mod tests {
             self.prev_hash.as_ref()
         }
 
-        fn hash(&self) -> &u32 {
+        fn as_hash(&self) -> &u32 {
             &self.hash
         }
     }
@@ -132,16 +146,21 @@ mod tests {
         ccc.add_transaction(1, t1.clone()).unwrap();
         assert_eq!(ccc.next_transaction_id(), 2);
 
-        // TODO, what are the errors here?
         // transaction id isn't correct
         assert_eq!(
             ccc.add_transaction(0, t2.clone()),
-            Err(vec![t0.clone(), t1.clone()])
+            Err(CCCError::WrongTransactionId)
         );
-        assert_eq!(ccc.add_transaction(1, t2.clone()), Err(vec![t1.clone()]));
-        assert_eq!(ccc.add_transaction(3, t2.clone()), Err(vec![]));
+        assert_eq!(
+            ccc.add_transaction(1, t2.clone()),
+            Err(CCCError::WrongTransactionId)
+        );
+        assert_eq!(
+            ccc.add_transaction(3, t2.clone()),
+            Err(CCCError::WrongTransactionId)
+        );
         // last_hash doesn't match
-        assert_eq!(ccc.add_transaction(2, t99), Err(vec![]));
+        assert_eq!(ccc.add_transaction(2, t99), Err(CCCError::HashMismatch));
 
         ccc.add_transaction(2, t2.clone()).unwrap();
 
