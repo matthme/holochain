@@ -445,6 +445,23 @@ impl DhtOp {
             None
         }
     }
+
+    /// Enzymatic countersigning session ops MAY have an additional optional
+    /// signers list of minimum length. This converts the dht op into that
+    /// minimum length required for a complete session.
+    pub fn countersigning_minimum_optional_signers(&self) -> usize {
+        if let Some(Entry::CounterSign(session_data, _)) = self.entry() {
+            if session_data.preflight_request().enzymatic {
+                session_data.preflight_request().minimum_optional_signing_agents.into()
+            }
+            else {
+                0
+            }
+        }
+        else {
+            0
+        }
+    }
 }
 
 impl PartialOrd for DhtOp {

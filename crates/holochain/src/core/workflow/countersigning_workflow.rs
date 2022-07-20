@@ -44,7 +44,8 @@ struct Session {
     /// Map of action hash for a each signers action to the
     /// [`DhtOp`] and other required actions for this session to be
     /// considered complete.
-    map: HashMap<ActionHash, (DhtOpHash, DhtOp, Vec<ActionHash>)>,
+    /// The action hash vecs are required, optional
+    map: HashMap<ActionHash, (DhtOpHash, DhtOp, Vec<ActionHash>, Vec<ActionHash>)>,
     /// When this session expires.
     /// If this is none the session is empty.
     expires: Option<Timestamp>,
@@ -85,10 +86,12 @@ pub(crate) fn incoming_countersigning(
                         .map(|h| ActionHash::with_data_sync(&h))
                         .collect();
 
+                    let optional_actions: Vec<_> = action_set
+
                     // Check if already timed out.
                     if holochain_zome_types::Timestamp::now() < expires {
                         // Put this op in the pending map.
-                        workspace.put(entry_hash, hash, op, required_actions, expires);
+                        workspace.put(entry_hash, hash, op, required_actions, optional_actions, expires);
                         // We have new ops so we should trigger the workflow.
                         should_trigger = true;
                     }
@@ -358,6 +361,7 @@ impl CountersigningWorkspace {
         op_hash: DhtOpHash,
         op: DhtOp,
         required_actions: Vec<ActionHash>,
+        optional_actions: Vec<ActionHash>,
         expires: Timestamp,
     ) {
         // hash the action of this ops.
@@ -370,7 +374,7 @@ impl CountersigningWorkspace {
                 // Insert the op into the session.
                 session
                     .map
-                    .insert(action_hash, (op_hash, op, required_actions));
+                    .insert(action_hash, (op_hash, op, required_actions, optional_actions));
 
                 // Set the expires time.
                 session.expires = Some(expires);
@@ -390,23 +394,30 @@ impl CountersigningWorkspace {
                 });
 
                 // Get all complete session's entry hashes.
-                let complete: Vec<_> = i
-                    .pending
-                    .iter()
-                    .filter_map(|(entry_hash, session)| {
-                        // If all session required actions are contained in the map
-                        // then the session is complete.
-                        if session.map.values().all(|(_, _, required_hashes)| {
-                            required_hashes
-                                .iter()
-                                .all(|hash| session.map.contains_key(hash))
-                        }) {
-                            Some(entry_hash.clone())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+                let complete: Vec<_> =
+                    i.pending
+                        .iter()
+                        .filter_map(|(entry_hash, session)| {
+                            // If all session required actions are contained in the map
+                            // then the session is complete.
+                            if session.map.values().all(
+                                |(_, dht_op, required_hashes, optional_hashes)| {
+                                    required_hashes
+                                        .iter()
+                                        .all(|hash| session.map.contains_key(hash))
+                                        && optional_hashes
+                                            .iter()
+                                            .filter(|hash| session.map.contains_key(hash))
+                                            .length
+                                            >= dht_op.countersigning_minimum_optional_signers()
+                                },
+                            ) {
+                                Some(entry_hash.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
 
                 let mut ret = Vec::with_capacity(complete.len());
 
@@ -456,6 +467,57 @@ mod tests {
     /// the expiry time is in the future and all required actions
     /// are present.
     fn gets_complete_sessions() {
+        let mut u = arbitrary::Unstructured::new(&holochain_zome_types::NOISE);
+        let workspace = CountersigningWorkspace::new();
+
+        // - Create the ops.
+        let data = |u: &mut arbitrary::Unstructured| {
+            let op_hash = DhtOpHash::arbitrary(u).unwrap();
+            let op = DhtOp::arbitrary(u).unwrap();
+            let action = op.action();
+            (op_hash, op, action)
+        };
+        let entry_hash = EntryHash::arbitrary(&mut u).unwrap();
+        let mut op_hashes = Vec::new();
+        let mut ops = Vec::new();
+        let mut required_actions = Vec::new();
+        for _ in 0..5 {
+            let (op_hash, op, action) = data(&mut u);
+            let action_hash = ActionHash::with_data_sync(&action);
+            op_hashes.push(op_hash);
+            ops.push(op);
+            required_actions.push(action_hash);
+        }
+
+        // - Put the ops in the workspace with expiry set to one hour from now.
+        for (op_h, op) in op_hashes.into_iter().zip(ops.into_iter()) {
+            let expires = (Timestamp::now() + std::time::Duration::from_secs(60 * 60)).unwrap();
+            workspace.put(
+                entry_hash.clone(),
+                op_h,
+                op,
+                required_actions.clone(),
+                expires,
+            );
+        }
+
+        // - Get all complete sessions.
+        let r = workspace.get_complete_sessions();
+        // - Expect we have one.
+        assert_eq!(r.len(), 1);
+
+        workspace
+            .inner
+            .share_mut(|i, _| {
+                // - Check we have none pending.
+                assert_eq!(i.pending.len(), 0);
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn gets_complete_m_of_n_sessions() {
         let mut u = arbitrary::Unstructured::new(&holochain_zome_types::NOISE);
         let workspace = CountersigningWorkspace::new();
 
