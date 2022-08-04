@@ -1316,15 +1316,17 @@ impl ConductorHandleT for ConductorHandleImpl {
         let space = self.conductor.get_or_create_space(cell_id.dna_hash())?;
 
         // Get the chain head if there is one.
-        let persisted_chain_head = space
+        let actions = space
             .authored_db
             .async_reader({
                 let author = Arc::new(cell_id.agent_pubkey().clone());
-                move |txn| holochain_state::prelude::chain_head_db(&txn, author)
+                move |txn| holochain_state::prelude::get_actions(&txn)
             })
             .await
             .ok()
             .map(|c| (c.0, c.1));
+        
+        todo!("determine the chain head based on the first action in the list of records if in truncate mode");
 
         let network = self
             .conductor
