@@ -1089,6 +1089,14 @@ pub fn chain_head_db(
     Ok((prev_action, last_action_seq, last_action_timestamp))
 }
 
+pub fn get_actions(txn: &Transaction) -> StateQueryResult<Vec<(ActionHash, u32)>> {
+    Ok(txn
+        .prepare("SELECT hash, seq FROM Action ORDER BY seq")
+        .unwrap()
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<_, _>>()?)
+}
+
 /// Check if there is a current countersigning session and if so, return the
 /// session data and the entry hash.
 pub fn current_countersigning_session(

@@ -16,7 +16,10 @@ use holochain::{
 };
 use holochain::{core::SourceChainError, test_utils::display_agent_infos};
 use holochain_keystore::MetaLairClient;
-use holochain_state::prelude::{fresh_reader_test, StateMutationError, Store, Txn};
+use holochain_state::{
+    prelude::{fresh_reader_test, StateMutationError, Store, Txn},
+    source_chain::get_actions,
+};
 use holochain_types::{inline_zome::InlineZomeSet, prelude::*};
 use holochain_wasm_test_utils::TestWasm;
 use holochain_zome_types::{op::Op, record::RecordEntry};
@@ -509,18 +512,7 @@ async fn insert_source_chain() {
         .await;
 
     // Get the current chain source chain.
-    let get_chain = |env| {
-        fresh_reader_test(env, |txn| {
-            let chain: Vec<(ActionHash, u32)> = txn
-                .prepare("SELECT hash, seq FROM Action ORDER BY seq")
-                .unwrap()
-                .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-                .unwrap()
-                .collect::<Result<_, _>>()
-                .unwrap();
-            chain
-        })
-    };
+    let get_chain = |env| fresh_reader_test(env, |txn| get_actions(&txn).unwrap());
 
     // Get the source chain.
     let chain = get_chain(alice.authored_db().clone());
@@ -589,6 +581,43 @@ async fn insert_source_chain() {
     action.action_seq = 3;
     action.prev_action = chain[2].0.clone();
 
+    let mut action2 = action.clone();
+    action2.action_seq = 4;
+    action2.prev_action = hash;
+
+    let record = make_record(&conductor.keystore(), action.clone().into()).await;
+    let record2 = make_record(&conductor.keystore(), action2.clone().into()).await;
+    let hash = record2.action_address().clone();
+    let result = conductor
+        .clone()
+        .insert_records_into_source_chain(
+            alice.cell_id().clone(),
+            false,
+            false,
+            vec![record.clone(), record2],
+        )
+        .await;
+
+    // Validation is off so forking is possible.
+    assert!(result.is_ok());
+
+    let chain = get_chain(alice.authored_db().clone());
+    // Chain should be 7 long.
+    assert_eq!(chain.len(), 7);
+    // The new action will be in the chain
+    assert!(chain.iter().any(|i| i.0 == hash));
+
+    // Insert one of the same actions again with truncation on.
+    conductor
+        .clone()
+        .insert_records_into_source_chain(alice.cell_id().clone(), true, true, vec![record.clone()])
+        .await
+        .unwrap();
+
+    let chain = get_chain(alice.authored_db().clone());
+    // Chain should only contain the fork ending in the record added.
+    assert_eq!(chain.len(), 4);
+
     let record = make_record(&conductor.keystore(), action.clone().into()).await;
     let hash = record.action_address().clone();
     let result = conductor
@@ -600,15 +629,6 @@ async fn insert_source_chain() {
             vec![record.clone()],
         )
         .await;
-
-    // Validation is off so forking is possible.
-    assert!(result.is_ok());
-
-    let chain = get_chain(alice.authored_db().clone());
-    // Chain should be 6 long.
-    assert_eq!(chain.len(), 6);
-    // The new action will be in the chain
-    assert!(chain.iter().any(|i| i.0 == hash));
 
     // Insert with truncation on.
     let result = conductor
