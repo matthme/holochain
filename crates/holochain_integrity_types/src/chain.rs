@@ -131,6 +131,15 @@ pub trait ChainItem: Clone + PartialEq + Eq + std::fmt::Debug {
 
     /// The hash of the previous item
     fn prev_hash(&self) -> Option<&Self::Hash>;
+
+    #[cfg(feature = "test_utils")]
+    fn seq_mut(&mut self) -> &mut u32;
+
+    #[cfg(feature = "test_utils")]
+    fn hash_mut(&mut self) -> &mut Self::Hash;
+
+    #[cfg(feature = "test_utils")]
+    fn prev_hash_mut(&mut self) -> Option<&mut Self::Hash>;
 }
 
 impl ChainItem for ActionHashed {
@@ -146,6 +155,21 @@ impl ChainItem for ActionHashed {
 
     fn prev_hash(&self) -> Option<&Self::Hash> {
         self.prev_action()
+    }
+
+    #[cfg(feature = "test_utils")]
+    fn seq_mut(&mut self) -> &mut u32 {
+        self.content.action_seq_mut()
+    }
+
+    #[cfg(feature = "test_utils")]
+    fn hash_mut(&mut self) -> &mut Self::Hash {
+        unimplemented!()
+    }
+
+    #[cfg(feature = "test_utils")]
+    fn prev_hash_mut(&mut self) -> Option<&mut Self::Hash> {
+        self.prev_action_mut()
     }
 }
 

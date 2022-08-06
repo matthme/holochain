@@ -473,15 +473,17 @@ async fn incoming_ops_filters_private_entry() {
     assert_eq!(num_entries, 0);
 }
 
-#[test]
+#[minitest::minitest(td, SignedActionHashed)]
 /// Test the chain validation works.
 fn valid_chain_test() {
     // Create a valid chain.
-    let actions = vec![
+    let test_actions = vec![
         TestChainItem::new(0),
         TestChainItem::new(1),
         TestChainItem::new(2),
     ];
+    let actions: Vec<_> = test_actions.clone().into_iter().map(td).collect();
+
     // Valid chain passes.
     validate_chain(actions.iter(), &None).expect("Valid chain");
 

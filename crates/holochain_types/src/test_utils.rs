@@ -9,6 +9,9 @@ use std::path::PathBuf;
 
 pub use holochain_zome_types::test_utils::*;
 
+use self::chain::chain_item_to_action;
+use self::chain::chain_to_ops;
+
 #[allow(missing_docs)]
 pub mod chain;
 
@@ -180,7 +183,7 @@ impl From<TestChainHash> for ActionHash {
 
 /// A test implementation of a minimal ChainItem which uses simple numbers for hashes
 /// and always points back to the previous number
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct TestChainItem {
     /// The sequence number
     pub seq: u32,
@@ -215,10 +218,43 @@ impl ChainItem for TestChainItem {
     fn prev_hash(&self) -> Option<&Self::Hash> {
         self.prev.as_ref()
     }
+
+    #[cfg(feature = "test_utils")]
+    fn seq_mut(&mut self) -> &mut u32 {
+        &mut self.seq
+    }
+
+    #[cfg(feature = "test_utils")]
+    fn hash_mut(&mut self) -> &mut Self::Hash {
+        &mut self.hash
+    }
+
+    #[cfg(feature = "test_utils")]
+    fn prev_hash_mut(&mut self) -> Option<&mut Self::Hash> {
+        self.hash.as_mut()
+    }
 }
 
 impl AsRef<Self> for TestChainItem {
     fn as_ref(&self) -> &Self {
         self
+    }
+}
+
+impl From<TestChainItem> for SignedActionHashed {
+    fn from(i: TestChainItem) -> Self {
+        chain_item_to_action(
+            &mut arbitrary::Unstructured::new(&holochain_zome_types::NOISE),
+            &i,
+        )
+    }
+}
+
+impl From<&TestChainItem> for SignedActionHashed {
+    fn from(i: &TestChainItem) -> Self {
+        chain_item_to_action(
+            &mut arbitrary::Unstructured::new(&holochain_zome_types::NOISE),
+            i,
+        )
     }
 }
