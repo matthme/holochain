@@ -19,72 +19,97 @@ impl ShardedGossipLocal {
         arc_set: Arc<DhtArcSet>,
         local_agents: &HashSet<Arc<KitsuneAgent>>,
     ) -> KitsuneResult<Option<Node>> {
-        let mut remote_nodes: HashMap<Tx2Cert, Node> = HashMap::new();
+        // Attempt to read the cache of remote nodes for this arcset
+        let intervals = arc_set.intervals();
+        let next_node = if self.inner.share_ref(|s| {
+            Ok(s.remote_nodes_cached
+                .get(&intervals)
+                .map(|(ts, agents)| {
+                    ts.elapsed() <= GOSSIP_REMOTE_NODE_QUERY_INTERVAL
+                }).unwrap_or(false))
+        })? {
+            self.inner.share_mut(|s, _| {
+                Ok(s.remote_nodes_cached.get_mut(&intervals).map(|_, ns| ns.pop()).flatten())
+            })?
+        } else {
+                // If the cache misses, get all the remote nodes in this arc set
+                // and update the cache.
+                let remote_agents_within_arc_set: HashSet<_> =
+                    store::agents_within_arcset(&self.evt_sender, &self.space, arc_set.clone())
+                        .await?
+                        .into_iter()
+                        .filter(|(a, _)| !local_agents.contains(a))
+                        .map(|(a, _)| a)
+                        .collect();
 
-        // Get all the remote nodes in this arc set.
-        let remote_agents_within_arc_set: HashSet<_> =
-            store::agents_within_arcset(&self.evt_sender, &self.space, arc_set.clone())
-                .await?
-                .into_iter()
-                .filter(|(a, _)| !local_agents.contains(a))
-                .map(|(a, _)| a)
-                .collect();
+                let mut remote_nodes: HashMap<Tx2Cert, Node> = HashMap::new();
 
-        // Get all the agent info for these remote nodes.
-        for info in store::all_agent_info(&self.evt_sender, &self.space)
-            .await?
-            .into_iter()
-            .filter(|a| {
-                std::time::Duration::from_millis(a.expires_at_ms)
-                    > std::time::UNIX_EPOCH
-                        .elapsed()
-                        .expect("Your system clock is set before UNIX epoch")
-            })
-            .filter(|a| remote_agents_within_arc_set.contains(&a.agent))
-            .filter(|a| !a.storage_arc.is_empty())
-        {
-            // Get an address if there is one.
-            let info = info
-                .url_list
-                .iter()
-                .filter_map(|url| {
-                    kitsune_p2p_proxy::ProxyUrl::from_full(url.as_str())
-                        .map_err(|e| tracing::error!("Failed to parse url {:?}", e))
-                        .ok()
-                        .map(|purl| {
-                            (
-                                info.clone(),
-                                Tx2Cert::from(purl.digest()),
-                                TxUrl::from(url.as_str()),
-                            )
+                // Get all the agent info for these remote nodes.
+                for info in store::all_agent_info(&self.evt_sender, &self.space)
+                    .await?
+                    .into_iter()
+                    .filter(|a| {
+                        std::time::Duration::from_millis(a.expires_at_ms)
+                            > std::time::UNIX_EPOCH
+                                .elapsed()
+                                .expect("Your system clock is set before UNIX epoch")
+                    })
+                    .filter(|a| remote_agents_within_arc_set.contains(&a.agent))
+                    .filter(|a| !a.storage_arc.is_empty())
+                {
+                    // Get an address if there is one.
+                    let info = info
+                        .url_list
+                        .iter()
+                        .filter_map(|url| {
+                            kitsune_p2p_proxy::ProxyUrl::from_full(url.as_str())
+                                .map_err(|e| tracing::error!("Failed to parse url {:?}", e))
+                                .ok()
+                                .map(|purl| {
+                                    (
+                                        info.clone(),
+                                        Tx2Cert::from(purl.digest()),
+                                        TxUrl::from(url.as_str()),
+                                    )
+                                })
                         })
-                })
-                .next();
+                        .next();
 
-            // dbg!(&info);
-
-            // If we found a remote address add this agent to the node
-            // or create the node if it doesn't exist.
-            if let Some((info, cert, url)) = info {
-                match remote_nodes.get_mut(&cert) {
-                    // Add the agent to the node.
-                    Some(node) => node.agent_info_list.push(info),
-                    None => {
-                        // This is a new node.
-                        remote_nodes.insert(
-                            cert.clone(),
-                            Node {
-                                agent_info_list: vec![info],
-                                cert,
-                                url,
-                            },
-                        );
+                    // If we found a remote address add this agent to the node
+                    // or create the node if it doesn't exist.
+                    if let Some((info, cert, url)) = info {
+                        match remote_nodes.get_mut(&cert) {
+                            // Add the agent to the node.
+                            Some(node) => node.agent_info_list.push(info),
+                            None => {
+                                // This is a new node.
+                                remote_nodes.insert(
+                                    cert.clone(),
+                                    Node {
+                                        agent_info_list: vec![info],
+                                        cert,
+                                        url,
+                                    },
+                                );
+                            }
+                        }
                     }
                 }
-            }
-        }
 
-        let remote_nodes = remote_nodes.into_iter().map(|(_, v)| v).collect();
+                let mut remote_nodes: Vec<_> = remote_nodes.into_iter().map(|(_, v)| v).collect();
+                let next_node = remote_nodes.pop();
+
+                self.inner.share_mut(|s, _| {
+                    s.remote_nodes_cached.insert(
+                        intervals,
+                        (std::time::Instant::now(), remote_nodes.clone()),
+                    );
+                    Ok(())
+                })?;
+                next_node;
+            };
+        };
+
         let tuning_params = self.tuning_params.clone();
         // We could clone the metrics store out of the lock here but I don't think
         // the next_remote_node will be that slow so we can just choose the next node inline.

@@ -28,6 +28,7 @@ use std::time::{Duration, SystemTime};
 use tokio::time::Instant;
 
 pub use self::bandwidth::BandwidthThrottle;
+use self::next_target::Node;
 use self::ops::OpsBatchQueue;
 use self::state_map::RoundStateMap;
 use crate::metrics::MetricsSync;
@@ -36,14 +37,12 @@ use super::{HowToConnect, MetaOpKey};
 
 pub use bandwidth::BandwidthThrottles;
 
-/// How quickly to run a gossip iteration which attempts to initiate
+/// How often to run a gossip iteration which attempts to initiate
 /// with a new target.
-///
-/// TODO: Currently our gossip loop does a database query for remote nodes
-/// on every iteration. We should add a longer interval for refreshing this
-/// list (perhaps once per second), and use a cached value for other iterations,
-/// so as not to do hundreds of DB queries per second.
-const GOSSIP_LOOP_INTERVAL_MS: Duration = Duration::from_millis(10);
+const GOSSIP_LOOP_INTERVAL: Duration = Duration::from_millis(10);
+
+/// How often to refresh the list of valid remote nodes for gossiping with
+const GOSSIP_REMOTE_NODE_QUERY_INTERVAL: Duration = Duration::from_secs(1);
 
 #[cfg(any(test, feature = "test_utils"))]
 #[allow(missing_docs)]
@@ -208,7 +207,7 @@ impl ShardedGossip {
                     .closing
                     .load(std::sync::atomic::Ordering::Relaxed)
                 {
-                    tokio::time::sleep(GOSSIP_LOOP_INTERVAL_MS).await;
+                    tokio::time::sleep(GOSSIP_LOOP_INTERVAL).await;
                     this.run_one_iteration().await;
                     this.stats(&mut stats);
                 }
@@ -418,6 +417,11 @@ pub(crate) struct ShardedGossipTarget {
 pub struct ShardedGossipLocalState {
     /// The list of agents on this node
     local_agents: HashSet<Arc<KitsuneAgent>>,
+    /// The list of remote nodes to gossip with for a given arcset.
+    /// This is cached and updated periodically according to [`GOSSIP_REMOTE_NODE_QUERY_INTERVAL`].
+    // Note that `DhtArcSet` itself does not implement `Hash`, so we must use a different representation
+    // for the key, instead using a vec of arc ranges.
+    remote_nodes_cached: HashMap<Vec<DhtArcRange>, (std::time::Instant, Vec<Node>)>,
     /// If Some, we are in the process of trying to initiate gossip with this target.
     initiate_tgt: Option<ShardedGossipTarget>,
     round_map: RoundStateMap,
