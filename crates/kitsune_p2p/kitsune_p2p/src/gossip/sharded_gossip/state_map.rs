@@ -1,9 +1,14 @@
+use super::round::GossipRound;
+use chashmap::CHashMap;
+
 use super::*;
 
 /// Map of gossip round state that checks for timed out rounds on gets.
 #[derive(Default, Debug)]
 pub(super) struct RoundStateMap {
     map: HashMap<StateKey, RoundState>,
+    // TODO: private
+    pub(crate) rounds: CHashMap<StateKey, GossipRound>,
     timed_out: Vec<(StateKey, RoundState)>,
 }
 
@@ -23,9 +28,9 @@ impl RoundStateMap {
     }
 
     /// Get the state if it hasn't timed out.
-    pub(super) fn get(&mut self, key: &StateKey) -> Option<&RoundState> {
+    pub(super) fn get(&mut self, key: &StateKey) -> Option<RoundState> {
         self.touch(key);
-        self.map.get(key)
+        self.map.get(key).cloned()
     }
 
     /// Get the mutable state if it hasn't timed out.
