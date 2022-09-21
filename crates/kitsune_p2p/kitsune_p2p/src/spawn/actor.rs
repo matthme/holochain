@@ -288,7 +288,7 @@ impl KitsuneP2pActor {
                                         match host
                                             .get_agent_info_signed(GetAgentInfoSignedEvt {
                                                 space,
-                                                agent,
+                                                agent: agent.clone(),
                                             })
                                             .await
                                         {
@@ -296,8 +296,12 @@ impl KitsuneP2pActor {
                                                 let resp = wire::Wire::peer_get_resp(agent_info_signed);
                                                 resp!(respond, resp);
                                             },
-                                            r => {
-                                                let resp = wire::Wire::failure(format!("no such agent. returned: {:?}", r, ));
+                                            Ok(None) => {
+                                                let resp = wire::Wire::failure(format!("No such agent: {}", agent));
+                                                resp!(respond, resp);
+                                            },
+                                            err => {
+                                                let resp = wire::Wire::failure(format!("Error while getting agent: {:?}", err));
                                                 resp!(respond, resp);
                                             }
                                         }
