@@ -224,6 +224,12 @@ impl PersistMem {
     }
 }
 
+impl std::fmt::Debug for PersistMem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("PersistMem").finish()
+    }
+}
+
 impl AsKdPersist for PersistMem {
     fn uniq(&self) -> Uniq {
         self.1

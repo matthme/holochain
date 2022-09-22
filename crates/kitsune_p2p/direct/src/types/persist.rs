@@ -8,7 +8,7 @@ use kitsune_p2p_types::tls::TlsConfig;
 use std::future::Future;
 
 /// Trait representing a persistence store.
-pub trait AsKdPersist: 'static + Send + Sync {
+pub trait AsKdPersist: 'static + Send + Sync + std::fmt::Debug {
     /// Get a uniq val that assists with Eq/Hash of trait objects.
     fn uniq(&self) -> Uniq;
 
@@ -85,7 +85,7 @@ pub trait AsKdPersist: 'static + Send + Sync {
 }
 
 /// Handle to a persistence store.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct KdPersist(pub Arc<dyn AsKdPersist>);
 
 impl PartialEq for KdPersist {

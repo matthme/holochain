@@ -18,7 +18,7 @@ pub struct OpsBatchQueueInner {
 }
 
 /// Identify the next items to process from the region queue.
-/// Always returns at least one item if the queue is not empty, regardless of size constraints.
+/// Always returns at least one item of the queue is not empty, regardless of size constraints.
 /// The total size of regions returned will be less than the batch size, unless the first item
 /// on its own is larger than the batch size.
 pub fn get_region_queue_batch(queue: &mut VecDeque<Region>, batch_size: u32) -> Vec<Region> {

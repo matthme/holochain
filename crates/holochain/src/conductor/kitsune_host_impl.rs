@@ -27,6 +27,12 @@ pub struct KitsuneHostImpl {
     strat: ArqStrat,
 }
 
+impl std::fmt::Debug for KitsuneHostImpl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KitsuneHostImpl").finish()
+    }
+}
+
 impl KitsuneHostImpl {
     /// Constructor
     pub fn new(

@@ -38,6 +38,8 @@ impl ShardedGossipLocal {
         if !accept_is_from_target {
             // The other node will have to timeout on this but nodes should
             // not be sending accepts to nodes that aren't targeting them.
+
+            // TODO: couldn't this be an error?
             return Ok(vec![]);
         }
 

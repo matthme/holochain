@@ -30,6 +30,7 @@ impl ShardedGossipLocal {
             evt_sender,
             host_api: host,
             inner: Share::new(inner),
+            rounds: Default::default(),
             closing: std::sync::atomic::AtomicBool::new(false),
         }
     }

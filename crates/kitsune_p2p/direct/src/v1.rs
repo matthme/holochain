@@ -195,7 +195,13 @@ struct Kd1Inner {
     auth_set: HashSet<Uniq>,
 }
 
-#[derive(Clone)]
+impl std::fmt::Debug for Kd1Inner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Kd1Inner").finish()
+    }
+}
+
+#[derive(Clone, Debug)]
 struct Kd1 {
     uniq: Uniq,
     persist: KdPersist,
