@@ -7,6 +7,7 @@ use crate::gossip::{decode_bloom_filter, encode_bloom_filter};
 use crate::types::event::*;
 use crate::types::gossip::*;
 use crate::{types::*, HostApi};
+use chashmap::CHashMap;
 use ghost_actor::dependencies::tracing;
 use governor::clock::DefaultClock;
 use governor::state::{InMemoryState, NotKeyed};
@@ -196,6 +197,7 @@ impl ShardedGossip {
                 host_api,
                 inner: Share::new(ShardedGossipLocalState::new(metrics)),
                 gossip_type,
+                rounds: Default::default(),
                 closing: AtomicBool::new(false),
             },
             bandwidth,
@@ -394,6 +396,7 @@ pub struct ShardedGossipLocal {
     evt_sender: EventSender,
     host_api: HostApi,
     inner: Share<ShardedGossipLocalState>,
+    rounds: CHashMap<StateKey, GossipRound>,
     closing: AtomicBool,
 }
 
@@ -645,13 +648,20 @@ impl ShardedGossipLocal {
         })
     }
 
-    fn update_round<T, F: FnOnce(&mut GossipRound) -> T>(
+    async fn update_round(
         &self,
         id: &StateKey,
-        f: F,
-    ) -> KitsuneResult<Option<T>> {
-        self.inner
-            .share_mut(|i, _| Ok(i.round_map.rounds.get_mut(id).map(|mut r| f(&mut r))))
+        msg: ShardedGossipWire,
+    ) -> KitsuneResult<Vec<ShardedGossipWire>> {
+        let r = self.rounds.get_mut(id);
+        if let Some(mut r) = r {
+            Ok(r.process_incoming(msg.clone()).await?)
+        } else {
+            Err(KitsuneError::other(format!(
+                "expected an open gossip round for cert but found none. Cert: {:?}",
+                id
+            )))
+        }
     }
 
     fn get_state(&self, id: &StateKey) -> KitsuneResult<Option<RoundState>> {
@@ -797,16 +807,7 @@ impl ShardedGossipLocal {
                 self.remove_state(&cert, true)?;
                 Vec::with_capacity(0)
             }
-            msg => {
-                if let Some(outgoing) =
-                    self.update_round(&cert, |round| round.process_incoming(msg.clone()))?
-                {
-                    outgoing
-                } else {
-                    tracing::warn!("Message was unexpected because no gossip round is initialized for this cert. Cert: {:?}, Msg: {:?}", cert, msg);
-                    vec![]
-                }
-            }
+            msg => self.update_round(&cert, msg).await?,
         };
         s.in_scope(|| {
             let ops_s = r
@@ -1103,6 +1104,8 @@ impl AsGossipModule for ShardedGossip {
         });
     }
 }
+
+pub type WireMsg = ShardedGossipWire;
 
 struct ShardedRecentGossipFactory {
     bandwidth: Arc<BandwidthThrottle>,

@@ -1,6 +1,7 @@
 use crate::KitsuneHostDefaultError;
 
 /// Dummy host impl for plumbing
+#[derive(Debug)]
 pub struct HostStub;
 
 impl KitsuneHostDefaultError for HostStub {

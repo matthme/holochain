@@ -8,6 +8,7 @@ use kitsune_p2p_types::dht::{ArqStrat, PeerStrat};
 
 use super::*;
 
+#[derive(Debug)]
 pub struct StandardResponsesHostApi {
     infos: Vec<AgentInfoSigned>,
     topology: Topology,

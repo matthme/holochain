@@ -5,10 +5,12 @@ use std::{
 
 use kitsune_p2p_types::{
     agent_info::AgentInfoSigned, bin_types::KitsuneSpace, dht::region_set::RegionSetLtcs,
-    dht_arc::DhtArcSet,
+    dht_arc::DhtArcSet, KitsuneResult,
 };
 
-use super::{Agents, EventSender, ShardedGossipWire};
+use crate::gossip::decode_bloom_filter;
+
+use super::*;
 
 #[derive(Debug)]
 pub enum GossipRound {
@@ -18,33 +20,35 @@ pub enum GossipRound {
 
 /// Info about a gossip round which is not part of state transitions.
 #[derive(Debug)]
-pub struct GossipRoundInfo {
+pub struct RoundInfo {
     /// The Space which this Round is a part of
-    pub(crate) space: Arc<KitsuneSpace>,
-    /// The remote agents hosted by the remote node, used for metrics tracking
-    pub(crate) remote_agent_list: Vec<AgentInfoSigned>,
-    /// The common ground with our gossip partner for the purposes of this round
-    pub(crate) common_arc_set: Arc<DhtArcSet>,
-    /// Last moment we had any contact for this round.
-    pub(crate) last_touch: Instant,
-    /// Amount of time before a round is considered expired.
-    pub(crate) round_timeout: Duration,
+    pub space: Arc<KitsuneSpace>,
+    /// Tuning parameters for this gossip module
+    pub tuning_params: Arc<KitsuneP2pTuningParams>,
     /// The EventSender used to send events
-    pub(crate) evt_sender: EventSender,
+    pub evt_sender: EventSender,
+    /// The host api
+    pub host_api: HostApi,
+
+    /// The remote agents hosted by the remote node, used for metrics tracking
+    pub remote_agent_list: Vec<AgentInfoSigned>,
+    /// The common ground with our gossip partner for the purposes of this round
+    pub common_arc_set: Arc<DhtArcSet>,
+    /// Last moment we had any contact for this round.
+    pub last_touch: Instant,
+    /// Amount of time before a round is considered expired.
+    pub round_timeout: Duration,
 }
 
 #[derive(Debug)]
-pub struct GossipRoundContext {}
-
-#[derive(Debug)]
 pub struct GossipRoundRecent {
-    info: GossipRoundInfo,
+    info: RoundInfo,
     state: GossipRoundRecentState,
 }
 
 #[derive(Debug)]
 pub struct GossipRoundHistorical {
-    info: GossipRoundInfo,
+    info: RoundInfo,
     state: GossipRoundHistoricalState,
 }
 
@@ -66,83 +70,132 @@ pub enum GossipRoundRecentState {
 
 #[derive(Debug)]
 pub enum GossipRoundHistoricalState {
-    Begin(Arc<RegionSetLtcs>),
+    Begin,
     ExpectingRegions,
-    ExpectingOps,
+    ExpectingOps(u32),
     Finished,
 }
 
 pub type Msg = ShardedGossipWire;
 
 impl GossipRound {
-    pub fn process_incoming(&mut self, msg: Msg) -> Vec<Msg> {
+    pub async fn process_incoming(&mut self, msg: Msg) -> KitsuneResult<Vec<Msg>> {
         match self {
-            Self::Recent(r) => r.process_incoming(msg),
-            Self::Historical(r) => r.process_incoming(msg),
+            Self::Recent(r) => r.process_incoming(msg).await,
+            Self::Historical(r) => r.process_incoming(msg).await,
         }
-    }
-}
-
-impl GossipRoundRecent {
-    /// Given an incoming message, apply the appropriate state transition and produce
-    /// the corresponding outgoing messages.
-    pub fn process_incoming(&mut self, msg: Msg) -> Vec<Msg> {
-        let (next, outgoing) = self.transition(msg);
-        if let Some(next) = next {
-            self.state = next;
-        }
-        outgoing
-    }
-
-    pub fn transition(&self, msg: Msg) -> (Option<GossipRoundRecentState>, Vec<Msg>) {
-        use GossipRoundRecentState::*;
-        match (&self.state, msg) {
-            (Begin, _) => todo!(),
-            (ExpectingAgentBloom, Msg::Agents(Agents { filter })) => {
-                (Some(ExpectingAgents), todo!())
-            }
-            (ExpectingAgents, _) => todo!(),
-            (ExpectingOpBloom, _) => todo!(),
-            (ExpectingOps(_), _) => todo!(),
-            (Finished, _) => todo!(),
-            (s, m) => (None, self.unexpected_response(&m)),
-        }
-    }
-
-    fn error_response(&self, msg: &Msg, reason: &str) -> Vec<Msg> {
-        vec![Msg::error(format!(
-            "Error while handling incoming message.
-        Reason: {}
-        Message: {:?}
-        Round state: {:?}",
-            reason, msg, self.state
-        ))]
-    }
-
-    fn unexpected_response(&self, m: &Msg) -> Vec<Msg> {
-        vec![Msg::error(format!(
-            "Unexpected gossip message.
-        Message: {:?}
-        Round state: {:?}",
-            m, self.state
-        ))]
     }
 }
 
 impl GossipRoundHistorical {
     /// Given an incoming message, apply the appropriate state transition and produce
     /// the corresponding outgoing messages.
-    pub fn process_incoming(&mut self, msg: Msg) -> Vec<Msg> {
-        let (next, outgoing) = self.transition(msg);
+    pub async fn process_incoming(&mut self, msg: Msg) -> KitsuneResult<Vec<Msg>> {
+        let (next, outgoing) = self.transition(msg).await?;
         if let Some(next) = next {
             self.state = next;
         }
-        outgoing
+        Ok(outgoing)
     }
 
-    fn transition(&self, msg: Msg) -> (Option<GossipRoundHistoricalState>, Vec<Msg>) {
-        todo!()
+    pub async fn transition(
+        &self,
+        msg: Msg,
+    ) -> KitsuneResult<(Option<GossipRoundHistoricalState>, Vec<Msg>)> {
+        use GossipRoundHistoricalState::*;
+        Ok(match (&self.state, msg) {
+            (Begin, _) => todo!(),
+            (ExpectingRegions(sent), Msg::OpRegions(m)) => {
+                self.queue_incoming_regions(state, region_set).await?
+            }
+            (ExpectingOps(_), Msg::MissingOps(m)) => todo!(),
+            // (Finished, _) => todo!(),
+            (s, m) => (None, unexpected_response(self, &m)),
+        })
     }
+}
+
+impl GossipRoundRecent {
+    /// Given an incoming message, apply the appropriate state transition and produce
+    /// the corresponding outgoing messages.
+    pub async fn process_incoming(&mut self, msg: Msg) -> KitsuneResult<Vec<Msg>> {
+        let (next, outgoing) = self.transition(msg).await?;
+        if let Some(next) = next {
+            self.state = next;
+        }
+        Ok(outgoing)
+    }
+
+    pub async fn transition(
+        &self,
+        msg: Msg,
+    ) -> KitsuneResult<(Option<GossipRoundRecentState>, Vec<Msg>)> {
+        use GossipRoundRecentState::*;
+        Ok(match (&self.state, msg) {
+            (Begin, _) => todo!(),
+            (ExpectingAgentBloom, Msg::Agents(m)) => {
+                let filter = decode_bloom_filter(&m.filter);
+                let outgoing = self.info.incoming_agents(filter).await?;
+                (Some(ExpectingAgents), outgoing)
+            }
+            (ExpectingAgents, Msg::MissingAgents(m)) => {
+                self.info
+                    .incoming_missing_agents(m.agents.as_slice())
+                    .await?;
+                todo!("what transition happens here?")
+            }
+            (ExpectingOpBloom, Msg::OpBloom(m)) => {
+                if m.finished {
+                    (Some(Finished), Vec::<Msg>::new());
+                    todo!("is this really correct?")
+                } else {
+                    // let outgoing = match m.missing_hashes {
+                    //     EncodedTimedBloomFilter::NoOverlap => vec![],
+                    //     EncodedTimedBloomFilter::MissingAllHashes { time_window } => {
+                    //         let filter = TimedBloomFilter {
+                    //             bloom: None,
+                    //             time: time_window,
+                    //         };
+                    //         self.info.incoming_op_bloom(state, filter, None).await?;
+                    //     }
+                    //     EncodedTimedBloomFilter::HaveHashes {
+                    //         filter,
+                    //         time_window,
+                    //     } => {
+                    //         let filter = TimedBloomFilter {
+                    //             bloom: Some(decode_bloom_filter(&filter)),
+                    //             time: time_window,
+                    //         };
+                    //         self.info.incoming_op_bloom(state, filter, None).await?
+                    //     }
+                    // };
+                    todo!()
+                }
+            }
+            (ExpectingOps(_), Msg::MissingOps(m)) => todo!(),
+            // (Finished, _) => todo!(),
+            (s, m) => (None, unexpected_response(self, &m)),
+        })
+    }
+}
+
+fn error_response(state: &dyn std::fmt::Debug, msg: &Msg, reason: &str) -> Vec<Msg> {
+    vec![Msg::error(format!(
+        "Error while handling incoming message.
+    Reason: {}
+    Message: {:?}
+    Round state: {:?}",
+        reason, msg, state
+    ))]
+}
+
+fn unexpected_response(state: &dyn std::fmt::Debug, m: &Msg) -> Vec<Msg> {
+    vec![Msg::error(format!(
+        "Unexpected gossip message.
+    Message: {:?}
+    Round state: {:?}",
+        m, state
+    ))]
 }
 
 /*
