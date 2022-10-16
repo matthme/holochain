@@ -15,7 +15,7 @@ use holo_hash::fixt::*;
 use holo_hash::*;
 use holochain_conductor_api::IntegrationStateDump;
 use holochain_conductor_api::IntegrationStateDumps;
-use holochain_conductor_api::ZomeCall;
+use holochain_conductor_api::SignedSerializedZomeCall;
 use holochain_keystore::MetaLairClient;
 use holochain_p2p::actor::HolochainP2pRefToDna;
 use holochain_p2p::dht::prelude::Topology;
@@ -741,7 +741,7 @@ where
 {
     let zome_call_unsigned = new_zome_call_unsigned(cell_id, func, payload, zome)?;
     Ok(
-        ZomeCall::try_from_unsigned_zome_call(keystore, zome_call_unsigned)
+        SignedSerializedZomeCall::try_from_unsigned_zome_call(keystore, zome_call_unsigned)
             .await
             .unwrap(),
     )

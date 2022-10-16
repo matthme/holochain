@@ -41,7 +41,7 @@ use hdk::prelude::*;
 use holochain::fixt::NamedInvocation;
 use holochain::fixt::ZomeCallInvocationFixturator;
 use holochain::{
-    conductor::api::ZomeCall,
+    conductor::api::SignedSerializedZomeCall,
     conductor::api::{AdminRequest, AdminResponse, AppRequest},
 };
 use holochain_conductor_api::AppResponse;

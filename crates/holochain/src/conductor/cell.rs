@@ -33,7 +33,7 @@ use hash_type::AnyDht;
 use holo_hash::*;
 use holochain_cascade::authority;
 use holochain_cascade::Cascade;
-use holochain_conductor_api::ZomeCall;
+use holochain_conductor_api::SignedSerializedZomeCall;
 use holochain_p2p::event::CountersigningSessionNegotiationMessage;
 use holochain_serialized_bytes::SerializedBytes;
 use holochain_sqlite::prelude::*;
@@ -306,7 +306,7 @@ impl Cell {
 
                     tasks.push(
                         self.call_zome(
-                            match ZomeCall::try_from_unsigned_zome_call(
+                            match SignedSerializedZomeCall::try_from_unsigned_zome_call(
                                 self.conductor_handle.keystore(),
                                 unsigned_zome_call,
                             )
@@ -816,7 +816,7 @@ impl Cell {
         nonce: IntNonce,
         expires_at: Timestamp,
     ) -> CellResult<SerializedBytes> {
-        let invocation = ZomeCall {
+        let invocation = ZomeCallUnsigned {
             cell_id: self.id.clone(),
             zome_name,
             cap_secret,
@@ -837,7 +837,7 @@ impl Cell {
     #[instrument(skip(self, call, workspace_lock))]
     pub async fn call_zome(
         &self,
-        call: ZomeCall,
+        call: SignedSerializedZomeCall,
         workspace_lock: Option<SourceChainWorkspace>,
     ) -> CellResult<ZomeCallResult> {
         // Only check if init has run if this call is not coming from

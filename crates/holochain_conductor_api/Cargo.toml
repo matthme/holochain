@@ -26,6 +26,7 @@ tracing = "0.1.26"
 thiserror = "1.0.22"
 url2 = "0.0.6"
 holochain_keystore = { version = "0.0.51", path = "../holochain_keystore" }
+one_err = "0.0.5"
 
 [dev-dependencies]
 matches = {version = "0.1.8"}

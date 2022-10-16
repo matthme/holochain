@@ -2,7 +2,7 @@
 // TODO [ B-03669 ] move to own crate
 
 use super::test_cell::TestCell;
-use crate::conductor::api::ZomeCall;
+use crate::conductor::api::SignedSerializedZomeCall;
 use crate::conductor::handle::ConductorHandle;
 use crate::core::ribosome::ZomeCallInvocation;
 use hdk::prelude::*;

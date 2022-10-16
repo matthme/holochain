@@ -12,7 +12,7 @@ use crate::core::ribosome::real_ribosome::RealRibosome;
 use crate::core::workflow::ZomeCallResult;
 use async_trait::async_trait;
 use holo_hash::DnaHash;
-use holochain_conductor_api::ZomeCall;
+use holochain_conductor_api::SignedSerializedZomeCall;
 use holochain_keystore::MetaLairClient;
 use holochain_state::host_fn_workspace::SourceChainWorkspace;
 use holochain_state::nonce::WitnessNonceResult;
@@ -53,7 +53,7 @@ impl CellConductorApiT for CellConductorApi {
     async fn call_zome(
         &self,
         cell_id: &CellId,
-        call: ZomeCall,
+        call: SignedSerializedZomeCall,
     ) -> ConductorApiResult<ZomeCallResult> {
         if *cell_id == call.cell_id {
             self.conductor_handle
@@ -130,7 +130,7 @@ pub trait CellConductorApiT: Send + Sync + Sized {
     async fn call_zome(
         &self,
         cell_id: &CellId,
-        call: ZomeCall,
+        call: SignedSerializedZomeCall,
     ) -> ConductorApiResult<ZomeCallResult>;
 
     /// Make a request to the DPKI service running for this Conductor.
@@ -176,7 +176,7 @@ pub trait CellConductorReadHandleT: Send + Sync {
     /// Invoke a zome function on a Cell
     async fn call_zome(
         &self,
-        call: ZomeCall,
+        call: SignedSerializedZomeCall,
         workspace_lock: SourceChainWorkspace,
     ) -> ConductorApiResult<ZomeCallResult>;
 
@@ -211,7 +211,7 @@ impl CellConductorReadHandleT for CellConductorApi {
 
     async fn call_zome(
         &self,
-        call: ZomeCall,
+        call: SignedSerializedZomeCall,
         workspace_lock: SourceChainWorkspace,
     ) -> ConductorApiResult<ZomeCallResult> {
         if self.cell_id == call.cell_id {

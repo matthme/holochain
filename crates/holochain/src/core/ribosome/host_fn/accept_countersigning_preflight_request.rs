@@ -111,7 +111,7 @@ pub fn accept_countersigning_preflight_request<'a>(
 #[cfg(feature = "slow_tests")]
 pub mod wasm_test {
     use crate::conductor::api::error::ConductorApiError;
-    use crate::conductor::api::ZomeCall;
+    use crate::conductor::api::SignedSerializedZomeCall;
     use crate::conductor::CellError;
     use crate::core::ribosome::error::RibosomeError;
     use crate::core::ribosome::wasm_test::RibosomeTestFixture;
@@ -209,7 +209,7 @@ pub mod wasm_test {
         let thing_fail_create_alice = conductor
             .handle()
             .call_zome(
-                ZomeCall::try_from_unsigned_zome_call(
+                SignedSerializedZomeCall::try_from_unsigned_zome_call(
                     conductor.handle().keystore(),
                     ZomeCallUnsigned {
                         cell_id: alice.cell_id().clone(),
@@ -236,7 +236,7 @@ pub mod wasm_test {
         let countersign_fail_create_alice = conductor
             .handle()
             .call_zome(
-                ZomeCall::try_from_unsigned_zome_call(
+                SignedSerializedZomeCall::try_from_unsigned_zome_call(
                     conductor.handle().keystore(),
                     ZomeCallUnsigned {
                         cell_id: alice.cell_id().clone(),
@@ -327,7 +327,7 @@ pub mod wasm_test {
         let preflight_acceptance_fail = conductor
             .handle()
             .call_zome(
-                ZomeCall::try_from_unsigned_zome_call(
+                SignedSerializedZomeCall::try_from_unsigned_zome_call(
                     conductor.handle().keystore(),
                     ZomeCallUnsigned {
                         cell_id: alice.cell_id().clone(),
@@ -370,7 +370,7 @@ pub mod wasm_test {
         let thing_fail_create_alice = conductor
             .handle()
             .call_zome(
-                ZomeCall::try_from_unsigned_zome_call(
+                SignedSerializedZomeCall::try_from_unsigned_zome_call(
                     conductor.handle().keystore(),
                     ZomeCallUnsigned {
                         cell_id: alice.cell_id().clone(),
@@ -394,7 +394,7 @@ pub mod wasm_test {
         let thing_fail_create_bob = conductor
             .handle()
             .call_zome(
-                ZomeCall::try_from_unsigned_zome_call(
+                SignedSerializedZomeCall::try_from_unsigned_zome_call(
                     conductor.handle().keystore(),
                     ZomeCallUnsigned {
                         cell_id: bob.cell_id().clone(),
@@ -427,7 +427,7 @@ pub mod wasm_test {
         let thing_fail_create_alice = conductor
             .handle()
             .call_zome(
-                ZomeCall::try_from_unsigned_zome_call(
+                SignedSerializedZomeCall::try_from_unsigned_zome_call(
                     conductor.handle().keystore(),
                     ZomeCallUnsigned {
                         cell_id: alice.cell_id().clone(),
@@ -469,7 +469,7 @@ pub mod wasm_test {
         let thing_fail_create_bob = conductor
             .handle()
             .call_zome(
-                ZomeCall::try_from_unsigned_zome_call(
+                SignedSerializedZomeCall::try_from_unsigned_zome_call(
                     conductor.handle().keystore(),
                     ZomeCallUnsigned {
                         cell_id: bob.cell_id().clone(),

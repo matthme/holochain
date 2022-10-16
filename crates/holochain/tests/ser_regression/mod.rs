@@ -6,7 +6,7 @@ use hdk::prelude::*;
 use holochain::conductor::api::AppInterfaceApi;
 use holochain::conductor::api::AppRequest;
 use holochain::conductor::api::AppResponse;
-use holochain::conductor::api::ZomeCall;
+use holochain::conductor::api::SignedSerializedZomeCall;
 use holochain::test_utils::setup_app;
 use holochain_state::nonce::fresh_nonce;
 use holochain_types::prelude::*;
@@ -108,7 +108,7 @@ async fn ser_regression_test() {
     let channel = ChannelName("hello world".into());
 
     let (nonce, expires_at) = fresh_nonce(Timestamp::now()).unwrap();
-    let mut invocation = ZomeCall::try_from_unsigned_zome_call(
+    let mut invocation = SignedSerializedZomeCall::try_from_unsigned_zome_call(
         handle.keystore(),
         ZomeCallUnsigned {
             cell_id: alice_cell_id.clone(),
@@ -152,7 +152,7 @@ async fn ser_regression_test() {
         content: "Hello from alice :)".into(),
     };
     let (nonce, expires_at) = fresh_nonce(Timestamp::now()).unwrap();
-    let mut invocation = ZomeCall::try_from_unsigned_zome_call(
+    let mut invocation = SignedSerializedZomeCall::try_from_unsigned_zome_call(
         handle.keystore(),
         ZomeCallUnsigned {
             cell_id: alice_cell_id.clone(),

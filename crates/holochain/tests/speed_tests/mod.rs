@@ -25,7 +25,7 @@ use holochain::conductor::api::AdminRequest;
 use holochain::conductor::api::AdminResponse;
 use holochain::conductor::api::AppRequest;
 use holochain::conductor::api::AppResponse;
-use holochain::conductor::api::ZomeCall;
+use holochain::conductor::api::SignedSerializedZomeCall;
 use holochain::test_utils::setup_app;
 use holochain_state::nonce::fresh_nonce;
 use holochain_wasm_test_utils::TestZomes;
@@ -234,7 +234,7 @@ async fn speed_test(n: Option<usize>) -> Arc<TempDir> {
             .unwrap();
         let response = call(
             &mut app_interface,
-            ZomeCall::try_from_unsigned_zome_call(handle.keystore(), invocation)
+            SignedSerializedZomeCall::try_from_unsigned_zome_call(handle.keystore(), invocation)
                 .await
                 .unwrap(),
         )
@@ -246,7 +246,7 @@ async fn speed_test(n: Option<usize>) -> Arc<TempDir> {
             .unwrap();
         let response = call(
             &mut app_interface,
-            ZomeCall::try_from_unsigned_zome_call(handle.keystore(), invocation)
+            SignedSerializedZomeCall::try_from_unsigned_zome_call(handle.keystore(), invocation)
                 .await
                 .unwrap(),
         )
@@ -271,7 +271,7 @@ async fn speed_test(n: Option<usize>) -> Arc<TempDir> {
             .unwrap();
             let response = call(
                 &mut app_interface,
-                ZomeCall::try_from_unsigned_zome_call(handle.keystore(), invocation)
+                SignedSerializedZomeCall::try_from_unsigned_zome_call(handle.keystore(), invocation)
                     .await
                     .unwrap(),
             )
@@ -295,7 +295,7 @@ async fn speed_test(n: Option<usize>) -> Arc<TempDir> {
             .unwrap();
             let response = call(
                 &mut app_interface,
-                ZomeCall::try_from_unsigned_zome_call(handle.keystore(), invocation)
+                SignedSerializedZomeCall::try_from_unsigned_zome_call(handle.keystore(), invocation)
                     .await
                     .unwrap(),
             )

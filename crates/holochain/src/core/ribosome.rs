@@ -15,7 +15,7 @@ pub mod real_ribosome;
 
 use crate::conductor::api::CellConductorApi;
 use crate::conductor::api::CellConductorReadHandle;
-use crate::conductor::api::ZomeCall;
+use crate::conductor::api::SignedSerializedZomeCall;
 use crate::conductor::interface::SignalBroadcaster;
 use crate::core::ribosome::guest_callback::entry_defs::EntryDefsResult;
 use crate::core::ribosome::guest_callback::init::InitInvocation;
@@ -319,7 +319,7 @@ impl ZomeCallInvocation {
                 .provenance
                 .verify_signature_raw(
                     &self.signature,
-                    ZomeCallUnsigned::from(ZomeCall::from(self.clone())).data_to_sign()?,
+                    ZomeCallUnsigned::from(SignedSerializedZomeCall::from(self.clone())).data_to_sign()?,
                 )
                 .await
             {
@@ -458,10 +458,11 @@ impl Invocation for ZomeCallInvocation {
 impl ZomeCallInvocation {
     pub async fn try_from_interface_call(
         conductor_api: CellConductorApi,
-        call: ZomeCall,
+        call: SignedSerializedZomeCall,
     ) -> RibosomeResult<Self> {
         use crate::conductor::api::CellConductorApiT;
-        let ZomeCall {
+        let zome_call = ZomeCallUnsigned::try_from_signed_serialized_zome_call(call)?;
+        let ZomeCallUnsigned {
             cell_id,
             zome_name,
             fn_name,
@@ -471,7 +472,7 @@ impl ZomeCallInvocation {
             signature,
             nonce,
             expires_at,
-        } = call;
+        } = zome_call;
         let zome = conductor_api
             .get_zome(cell_id.dna_hash(), &zome_name)
             .map_err(|conductor_api_error| RibosomeError::from(Box::new(conductor_api_error)))?;
@@ -682,7 +683,7 @@ pub fn weigh_placeholder() -> EntryRateWeight {
 #[cfg(test)]
 pub mod wasm_test {
     use crate::core::ribosome::FnComponents;
-    use crate::core::ribosome::ZomeCall;
+    use crate::core::ribosome::SignedSerializedZomeCall;
     use crate::sweettest::SweetAgents;
     use crate::sweettest::SweetCell;
     use crate::sweettest::SweetConductor;
@@ -726,7 +727,7 @@ pub mod wasm_test {
             nonce,
             expires_at,
         };
-        let alice_signed_zome_call = ZomeCall::try_from_unsigned_zome_call(
+        let alice_signed_zome_call = SignedSerializedZomeCall::try_from_unsigned_zome_call(
             &conductor.keystore(),
             alice_unsigned_zome_call.clone(),
         )

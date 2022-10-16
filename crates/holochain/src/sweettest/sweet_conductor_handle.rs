@@ -1,7 +1,7 @@
 use super::SweetZome;
 use crate::conductor::api::error::ConductorApiError;
 use crate::conductor::{api::error::ConductorApiResult, ConductorHandle};
-use holochain_conductor_api::ZomeCall;
+use holochain_conductor_api::SignedSerializedZomeCall;
 use holochain_state::nonce::fresh_nonce;
 use holochain_types::prelude::*;
 use unwrap_to::unwrap_to;
@@ -90,7 +90,7 @@ impl SweetConductorHandle {
             nonce,
             expires_at,
         };
-        let call = ZomeCall::try_from_unsigned_zome_call(self.keystore(), call_unsigned).await?;
+        let call = SignedSerializedZomeCall::try_from_unsigned_zome_call(self.keystore(), call_unsigned).await?;
         let response = self.handle().call_zome(call).await;
         match response {
             Ok(Ok(response)) => Ok(unwrap_to!(response => ZomeCallResponse::Ok)

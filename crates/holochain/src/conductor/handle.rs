@@ -36,7 +36,7 @@
 //! code which interacted with the Conductor would also have to be highly generic.
 
 use super::api::error::ConductorApiResult;
-use super::api::ZomeCall;
+use super::api::SignedSerializedZomeCall;
 use super::conductor::CellStatus;
 use super::config::AdminInterfaceConfig;
 use super::error::ConductorResult;
@@ -856,14 +856,14 @@ impl ConductorHandleT for ConductorHandleImpl {
         Ok(())
     }
 
-    async fn call_zome(&self, call: ZomeCall) -> ConductorApiResult<ZomeCallResult> {
+    async fn call_zome(&self, call: SignedSerializedZomeCall) -> ConductorApiResult<ZomeCallResult> {
         let cell = self.cell_by_id(&call.cell_id)?;
         Ok(cell.call_zome(call, None).await?)
     }
 
     async fn call_zome_with_workspace(
         &self,
-        call: ZomeCall,
+        call: SignedSerializedZomeCall,
         workspace_lock: SourceChainWorkspace,
     ) -> ConductorApiResult<ZomeCallResult> {
         debug!(cell_id = ?call.cell_id);
