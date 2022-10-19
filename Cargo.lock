@@ -2552,6 +2552,7 @@ dependencies = [
  "observability",
  "serde",
  "serde_bytes",
+ "socket2 0.4.7",
  "stream-cancel",
  "thiserror",
  "tokio",

@@ -233,10 +233,16 @@ async fn connect(
     socket: tokio::net::TcpStream,
     valve: Valve,
 ) -> WebsocketResult<Pair> {
-    // TODO: find alternative to set the keepalive
-    // socket.set_keepalive(Some(std::time::Duration::from_secs(
-    //     config.tcp_keepalive_s as u64,
-    // )))?;
+    let keepalive = socket2::TcpKeepalive::new()
+        .with_time(std::time::Duration::from_secs(7))
+        .with_interval(std::time::Duration::from_secs(7));
+
+    // we'll close unresponsive connections after 21-28 seconds (7 * 3)
+    // (it's a little unclear how long it'll wait after the final probe)
+    #[cfg(any(target_os = "linux", target_vendor = "apple"))]
+    let keepalive = keepalive.with_retries(3);
+    socket.set_tcp_keepalive(&keepalive)?;
+
     tracing::debug!(
         message = "accepted incoming raw socket",
         remote_addr = %socket.peer_addr()?,

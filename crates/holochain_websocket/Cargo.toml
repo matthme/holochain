@@ -17,6 +17,7 @@ net2 = "0.2"
 must_future = "0.1"
 serde = { version = "1", features = [ "derive" ] }
 serde_bytes = "0.11"
+socket2 = { version = "0.4.4", default-features = false }
 stream-cancel = "0.8.0"
 thiserror = "1.0.22"
 tokio = { version = "1", features = [ "full" ] }
