@@ -319,7 +319,7 @@ impl HostFnCaller {
 
     pub async fn get(&self, entry_hash: AnyDhtHash, options: GetOptions) -> Vec<Option<Record>> {
         let (ribosome, call_context, _) = self.unpack().await;
-        let input = GetInput::new(entry_hash, options);
+        let input = GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), entry_hash, options);
         host_fn::get::get(ribosome, call_context, vec![input]).unwrap()
     }
 
@@ -329,7 +329,7 @@ impl HostFnCaller {
         options: GetOptions,
     ) -> Vec<Option<Details>> {
         let (ribosome, call_context, _) = self.unpack().await;
-        let input = GetInput::new(entry_hash, options);
+        let input = GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), entry_hash, options);
         host_fn::get_details::get_details(ribosome, call_context, vec![input]).unwrap()
     }
 

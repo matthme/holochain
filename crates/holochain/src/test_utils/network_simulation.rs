@@ -568,7 +568,7 @@ pub async fn data_zome(integrity_uuid: String, coordinator_uuid: String) -> DnaF
         },
     )
     .function(coordinator_zome_name, "read", |api, hash: ActionHash| {
-        api.get(vec![GetInput::new(hash.into(), GetOptions::default())])
+        api.get(vec![GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), hash.into(), GetOptions::default())])
             .map(|e| e.into_iter().next().unwrap())
             .map_err(Into::into)
     });

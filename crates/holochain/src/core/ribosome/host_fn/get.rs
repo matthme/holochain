@@ -26,6 +26,7 @@ pub fn get<'a>(
                 tokio_helper::block_forever_on(async move {
                     futures::stream::iter(inputs.into_iter().map(|input| async {
                         let GetInput {
+                            observer,
                             any_dht_hash,
                             get_options,
                         } = input;

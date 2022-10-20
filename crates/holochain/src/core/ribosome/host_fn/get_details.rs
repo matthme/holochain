@@ -23,6 +23,7 @@ pub fn get_details<'a>(
                 tokio_helper::block_forever_on(async move {
                     join_all(inputs.into_iter().map(|input| async {
                         let GetInput {
+                            observer,
                             any_dht_hash,
                             get_options,
                         } = input;

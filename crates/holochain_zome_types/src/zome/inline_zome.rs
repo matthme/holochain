@@ -265,7 +265,7 @@ mod tests {
         let zome = InlineIntegrityZome::new("", vec![], 0).function("zome_fn_1", |api, a: ()| {
             let hash: AnyDhtHash = todo!();
             Ok(api
-                .get(vec![GetInput::new(hash, GetOptions::default())])
+                .get(vec![GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), hash, GetOptions::default())])
                 .expect("TODO after crate re-org"))
         });
         // let dna = InlineDna::new(hashmap! {

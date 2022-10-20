@@ -21,7 +21,7 @@ pub fn simple_create_read_zome() -> InlineIntegrityZome {
             Ok(hash)
         })
         .function("read", |api, hash: ActionHash| {
-            api.get(vec![GetInput::new(hash.into(), GetOptions::default())])
+            api.get(vec![GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), hash.into(), GetOptions::default())])
                 .map(|e| e.into_iter().next().unwrap())
                 .map_err(Into::into)
         })
@@ -57,7 +57,7 @@ pub fn batch_create_zome() -> InlineIntegrityZome {
             Ok(hashes)
         })
         .function("read", |api, hash: ActionHash| {
-            api.get(vec![GetInput::new(hash.into(), GetOptions::default())])
+            api.get(vec![GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), hash.into(), GetOptions::default())])
                 .map(|e| e.into_iter().next().unwrap())
                 .map_err(Into::into)
         })
@@ -118,19 +118,19 @@ pub fn simple_crud_zome() -> InlineZomeSet {
             Ok(hash)
         })
         .function("read", |api, hash: ActionHash| {
-            api.get(vec![GetInput::new(hash.into(), GetOptions::default())])
+            api.get(vec![GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), hash.into(), GetOptions::default())])
                 .map(|e| e.into_iter().next().unwrap())
                 .map_err(Into::into)
         })
         .function("read_multi", |api, hashes: Vec<ActionHash>| {
             let gets = hashes
                 .iter()
-                .map(|h| GetInput::new(h.clone().into(), GetOptions::default()))
+                .map(|h| GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), h.clone().into(), GetOptions::default()))
                 .collect();
             api.get(gets).map_err(Into::into)
         })
         .function("read_entry", |api, hash: EntryHash| {
-            api.get(vec![GetInput::new(hash.into(), GetOptions::default())])
+            api.get(vec![GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), hash.into(), GetOptions::default())])
                 .map_err(Into::into)
         })
         .function("emit_signal", |api, ()| {

@@ -155,6 +155,9 @@ impl AsRef<crate::Entry> for CreateInput {
 /// Zome input for get and get_details calls.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct GetInput {
+    /// Every agent has a different view on the network so specifying the observer
+    /// can change the outcome.
+    pub observer: crate::call::CallTarget,
     /// Any DHT hash to pass to get or get_details.
     pub any_dht_hash: holo_hash::AnyDhtHash,
     /// Options for the call.
@@ -163,8 +166,9 @@ pub struct GetInput {
 
 impl GetInput {
     /// Constructor.
-    pub fn new(any_dht_hash: holo_hash::AnyDhtHash, get_options: crate::entry::GetOptions) -> Self {
+    pub fn new(observer: crate::call::CallTarget, any_dht_hash: holo_hash::AnyDhtHash, get_options: crate::entry::GetOptions) -> Self {
         Self {
+            observer,
             any_dht_hash,
             get_options,
         }

@@ -56,6 +56,7 @@ fn get_entry_twice(_: ()) -> ExternResult<Vec<Option<Record>>> {
     HDK.with(|h| {
         h.borrow().get(vec![
             GetInput::new(
+                CallTarget::ConductorCell(CallTargetCell::Local),
                 hash_entry(&post())?.into(),
                 GetOptions::content()
             );

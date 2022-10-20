@@ -222,7 +222,7 @@ where
     Ok(HDK
         .with(|h| {
             h.borrow()
-                .get(vec![GetInput::new(AnyDhtHash::from(hash), options)])
+                .get(vec![GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), AnyDhtHash::from(hash), options)])
         })?
         .into_iter()
         .next()
@@ -280,7 +280,7 @@ pub fn get_details<H: Into<AnyDhtHash>>(
     Ok(HDK
         .with(|h| {
             h.borrow()
-                .get_details(vec![GetInput::new(hash.into(), options)])
+                .get_details(vec![GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), hash.into(), options)])
         })?
         .into_iter()
         .next()

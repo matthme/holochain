@@ -32,7 +32,7 @@ impl CounTree {
             h.borrow().get_details(
                 action_hashes
                     .into_iter()
-                    .map(|action_hash| GetInput::new(action_hash.into(), GetOptions::latest()))
+                    .map(|action_hash| GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), action_hash.into(), GetOptions::latest()))
                     .collect(),
             )
         })
@@ -44,7 +44,7 @@ impl CounTree {
             h.borrow().get_details(
                 entry_hashes
                     .into_iter()
-                    .map(|entry_hash| GetInput::new(entry_hash.into(), GetOptions::latest()))
+                    .map(|entry_hash| GetInput::new(CallTarget::ConductorCell(CallTargetCell::Local), entry_hash.into(), GetOptions::latest()))
                     .collect(),
             )
         })
