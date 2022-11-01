@@ -259,6 +259,19 @@ impl AgentInfoSigned {
     pub fn to_agent_arc(&self) -> AgentArc {
         (self.agent.clone(), self.storage_arc)
     }
+
+    /// Get the cert for each url in the list
+    pub fn certs(&self) -> Vec<Tx2Cert> {
+        self.url_list
+            .iter()
+            .filter_map(|url| {
+                kitsune_p2p_proxy::ProxyUrl::from_full(url.as_str())
+                    .map_err(|e| tracing::error!("Failed to parse url {:?}", e))
+                    .ok()
+                    .map(|purl| Tx2Cert::from(purl.digest()))
+            })
+            .collect()
+    }
 }
 
 #[cfg(test)]
