@@ -25,6 +25,7 @@ struct RMapItem<C: Codec + 'static + Send + Unpin> {
     sender: RSend<C>,
     start: tokio::time::Instant,
     timeout: std::time::Duration,
+    total_timeout_duration: std::time::Duration,
     dbg_name: &'static str,
     req_byte_count: usize,
     local_cert: Tx2Cert,
@@ -50,6 +51,7 @@ impl<C: Codec + 'static + Send + Unpin> RMap<C> {
         local_cert: Tx2Cert,
         peer_cert: Tx2Cert,
     ) {
+        let total_timeout_duration = timeout.duration();
         let timeout = timeout.time_remaining();
         self.0.insert(
             (uniq, msg_id),
@@ -57,6 +59,7 @@ impl<C: Codec + 'static + Send + Unpin> RMap<C> {
                 sender: s_res,
                 start: tokio::time::Instant::now(),
                 timeout,
+                total_timeout_duration,
                 dbg_name,
                 req_byte_count,
                 local_cert,
@@ -75,6 +78,7 @@ impl<C: Codec + 'static + Send + Unpin> RMap<C> {
             req_byte_count,
             local_cert,
             peer_cert,
+            ..
         }) = self.0.remove(&(uniq, msg_id))
         {
             let elapsed = start.elapsed();
@@ -158,6 +162,8 @@ impl<C: Codec + 'static + Send + Unpin> Drop for RMapDropCleanup<C> {
                 dbg_name,
                 local_cert,
                 peer_cert,
+                timeout,
+                total_timeout_duration,
                 ..
             }) = i.0.remove(&(self.1, self.2))
             {
@@ -167,6 +173,8 @@ impl<C: Codec + 'static + Send + Unpin> Drop for RMapDropCleanup<C> {
                     ?local_cert,
                     ?peer_cert,
                     %elapsed_s,
+                    total_timeout_duration = %total_timeout_duration.as_secs_f64(),
+                    timeout_duration_at_register_time = %timeout.as_secs_f64(),
                     "(api) req dropped",
                 );
             }
@@ -322,6 +330,10 @@ impl<C: Codec + 'static + Send + Unpin> Tx2ConHnd<C> {
             let peer_cert = this.peer_cert();
 
             let len = data.len();
+
+            if timeout.duration().as_secs_f64() < 30.0 {
+                tracing::error!(TIMEOUT_DURATION = %timeout.duration().as_secs_f64());
+            }
 
             // insert our response receive handler
             // Cleanup our map when this future completes

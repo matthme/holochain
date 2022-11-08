@@ -52,17 +52,22 @@ impl KitsuneBackoff {
 
 /// Kitsune Timeout
 #[derive(Debug, Clone, Copy)]
-pub struct KitsuneTimeout(tokio::time::Instant);
+pub struct KitsuneTimeout(tokio::time::Instant, std::time::Duration);
 
 impl KitsuneTimeout {
     /// Create a new timeout for duration in the future.
     pub fn new(duration: std::time::Duration) -> Self {
-        Self(tokio::time::Instant::now().checked_add(duration).unwrap())
+        Self(tokio::time::Instant::now().checked_add(duration).unwrap(), duration)
     }
 
     /// Convenience fn to create a new timeout for an amount of milliseconds.
     pub fn from_millis(millis: u64) -> Self {
         Self::new(std::time::Duration::from_millis(millis))
+    }
+
+    /// Get the full duration this timeout was created with.
+    pub fn duration(&self) -> std::time::Duration {
+        self.1
     }
 
     /// Generate a backoff instance bound to this timeout
