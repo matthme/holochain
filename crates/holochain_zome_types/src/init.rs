@@ -36,6 +36,7 @@ impl CallbackResult for InitCallbackResult {
             }
             WasmErrorInner::Host(_)
             | WasmErrorInner::HostShortCircuit(_)
+            | WasmErrorInner::GuestResultHandling(_)
             | WasmErrorInner::Compile(_)
             | WasmErrorInner::CallError(_)
             | WasmErrorInner::PointerMap

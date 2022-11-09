@@ -51,7 +51,7 @@ impl TryFrom<&Path> for Anchor {
                 Ok(Anchor {
                     anchor_type: std::str::from_utf8(components[1].as_ref())
                         .map_err(|e| {
-                            wasm_error!(SerializedBytesError::Deserialize(e.to_string()))
+                            wasm_error!(SerializedBytesError::Deserialize(e.to_string()).into())
                         })?
                         .to_string(),
                     anchor_text: {
@@ -61,7 +61,8 @@ impl TryFrom<&Path> for Anchor {
                                     .map_err(|e| {
                                         wasm_error!(SerializedBytesError::Deserialize(
                                             e.to_string()
-                                        ))
+                                        )
+                                        .into())
                                     })?
                                     .to_string(),
                             ),

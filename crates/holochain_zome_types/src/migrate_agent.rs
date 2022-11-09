@@ -27,6 +27,7 @@ impl CallbackResult for MigrateAgentCallbackResult {
             }
             WasmErrorInner::Host(_)
             | WasmErrorInner::HostShortCircuit(_)
+            | WasmErrorInner::GuestResultHandling(_)
             | WasmErrorInner::Compile(_)
             | WasmErrorInner::CallError(_)
             | WasmErrorInner::PointerMap

@@ -57,7 +57,7 @@ impl CounTree {
             Some(record) => match record
                 .entry()
                 .to_app_option()
-                .map_err(|e| wasm_error!(e))?
+                .map_err(|e| wasm_error!(e.into()))?
             {
                 Some(v) => v,
                 None => return Self::new(),

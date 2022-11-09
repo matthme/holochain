@@ -12,7 +12,7 @@ where
 {
     HDK.with(|h| {
         h.borrow()
-            .sign(Sign::new(key.into(), data).map_err(|e| wasm_error!(e))?)
+            .sign(Sign::new(key.into(), data).map_err(|e| wasm_error!(e.into()))?)
     })
 }
 
@@ -38,7 +38,7 @@ where
 {
     HDK.with(|h| {
         h.borrow()
-            .sign_ephemeral(SignEphemeral::new(datas).map_err(|e| wasm_error!(e))?)
+            .sign_ephemeral(SignEphemeral::new(datas).map_err(|e| wasm_error!(e.into()))?)
     })
 }
 
