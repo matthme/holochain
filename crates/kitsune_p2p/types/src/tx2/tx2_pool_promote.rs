@@ -452,6 +452,8 @@ impl ConItem {
                 .await
                 .map_err(KitsuneError::other)?;
 
+            tracing::error!(%remote, "NEW CONNECTION");
+
             let (con, in_chan_recv) = inner
                 .share_mut(|i, _| Ok(i.sub_ep.connect(remote.clone(), timeout)))?
                 .await?;

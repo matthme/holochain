@@ -158,6 +158,7 @@ impl<C: Codec + 'static + Send + Unpin> Drop for RMapDropCleanup<C> {
                 dbg_name,
                 local_cert,
                 peer_cert,
+                req_byte_count,
                 ..
             }) = i.0.remove(&(self.1, self.2))
             {
@@ -167,6 +168,7 @@ impl<C: Codec + 'static + Send + Unpin> Drop for RMapDropCleanup<C> {
                     ?local_cert,
                     ?peer_cert,
                     %elapsed_s,
+                    %req_byte_count,
                     "(api) req dropped",
                 );
             }
@@ -290,10 +292,14 @@ impl<C: Codec + 'static + Send + Unpin> Tx2ConHnd<C> {
     ) -> impl std::future::Future<Output = KitsuneResult<()>> + 'static + Send {
         let this = self.clone();
         async move {
-            let msg_id = MsgId::new_notify();
             let len = data.len();
-            this.con.write(msg_id, data, timeout).await?;
-            this.metrics.write_len(dbg_name, len);
+
+            let res = async {
+                let msg_id = MsgId::new_notify();
+                this.con.write(msg_id, data, timeout).await?;
+                this.metrics.write_len(dbg_name, len);
+                Ok(())
+            }.await;
 
             let peer_cert = this.peer_cert();
             tracing::trace!(
@@ -301,10 +307,11 @@ impl<C: Codec + 'static + Send + Unpin> Tx2ConHnd<C> {
                 req_byte_count=%len,
                 local_cert=?this.local_cert,
                 ?peer_cert,
+                is_err=%res.is_err(),
                 "(api) notify",
             );
 
-            Ok(())
+            res
         }
     }
 

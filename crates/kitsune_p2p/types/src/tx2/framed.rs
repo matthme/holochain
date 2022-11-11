@@ -275,6 +275,12 @@ impl AsFramedWriter for FramedWriter {
                 Some(inner) => inner,
             };
 
+            tracing::error!(
+                time_remaining = %timeout.time_remaining().as_secs_f64(),
+                byte_count = %data.len(),
+                "FramedWriterAboutToWrite",
+            );
+
             if let Err(e) = timeout
                 .mix("FramedWriter::write", async {
                     let total = (data.len() + MSG_SIZE_BYTES + MSG_ID_BYTES) as u32;

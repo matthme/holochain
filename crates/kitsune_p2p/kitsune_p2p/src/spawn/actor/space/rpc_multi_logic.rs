@@ -30,6 +30,8 @@ pub(crate) async fn handle_rpc_multi_as_single(
                          agent: Arc<KitsuneAgent>|
           -> BoxFuture<'_, KitsuneP2pResult<Vec<actor::RpcMultiResponse>>> {
         async move {
+            let cert = con_hnd.peer_cert();
+
             let msg = wire::Wire::call(space.clone(), agent.clone(), payload.clone().into());
 
             let start = tokio::time::Instant::now();
@@ -60,7 +62,7 @@ pub(crate) async fn handle_rpc_multi_as_single(
                         .metrics
                         .write()
                         .record_latency_micros(start.elapsed().as_micros(), [&agent]);
-                    tracing::warn!(?oth, "unexpected remote call result");
+                    tracing::warn!(?oth, ?cert, "unexpected remote call result");
                     Err("rpc_multi failed to get results".into())
                 }
             }

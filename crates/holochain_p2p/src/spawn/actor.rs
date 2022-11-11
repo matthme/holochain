@@ -38,6 +38,24 @@ macro_rules! timing_trace {
     }};
 }
 
+macro_rules! call_trace {
+    ($t:expr, $b:ident, $e:expr) => {{
+        let __start = std::time::Instant::now();
+        match $e {
+            Ok(o) => {
+                let __elapsed_s = __start.elapsed().as_secs_f64();
+                tracing::trace!( meta = ?$t, byte_count = %$b, elapsed_s = %__elapsed_s );
+                Ok(o)
+            }
+            Err(err) => {
+                let __elapsed_s = __start.elapsed().as_secs_f64();
+                tracing::warn!( meta = ?$t, byte_count = %$b, elapsed_s = %__elapsed_s, ?err );
+                Err(err)
+            }
+        }
+    }};
+}
+
 #[derive(Clone)]
 struct WrapEvtSender(futures::channel::mpsc::Sender<HolochainP2pEvent>);
 
@@ -922,10 +940,11 @@ impl HolochainP2pHandler for HolochainP2pActor {
             zome_name, fn_name, from_agent, cap_secret, payload,
         )
         .encode()?;
+        let byte_count = req.len();
 
         let kitsune_p2p = self.kitsune_p2p.clone();
         Ok(async move {
-            let result: Vec<u8> = kitsune_p2p.rpc_single(space, to_agent, req, None).await?;
+            let result: Vec<u8> = call_trace!("(ct:call_remote)", byte_count, kitsune_p2p.rpc_single(space, to_agent, req, None).await)?;
             Ok(UnsafeBytes::from(result).into())
         }
         .boxed()
@@ -952,14 +971,15 @@ impl HolochainP2pHandler for HolochainP2pActor {
         let req =
             crate::wire::WireMessage::call_remote(zome_name, fn_name, from_agent, cap, payload)
                 .encode()?;
+        let byte_count = req.len();
 
         let timeout = self.tuning_params.implicit_timeout();
 
         let kitsune_p2p = self.kitsune_p2p.clone();
         Ok(async move {
-            kitsune_p2p
+            call_trace!("(ct:remote_signal)", byte_count, kitsune_p2p
                 .targeted_broadcast(space, to_agent_list, timeout, req, true)
-                .await?;
+                .await)?;
             Ok(())
         }
         .boxed()
@@ -996,9 +1016,9 @@ impl HolochainP2pHandler for HolochainP2pActor {
 
         let kitsune_p2p = self.kitsune_p2p.clone();
         Ok(async move {
-            kitsune_p2p
+            call_trace!("(ct:publish)", payload_size, kitsune_p2p
                 .broadcast(space, basis, timeout, BroadcastTo::Notify, payload)
-                .await?;
+                .await)?;
             Ok(payload_size)
         }
         .boxed()
@@ -1015,17 +1035,19 @@ impl HolochainP2pHandler for HolochainP2pActor {
         let space = dna_hash.into_kitsune();
         let basis = dht_hash.to_kitsune();
         let r_options: event::GetOptions = (&options).into();
+        let r_options2: event::GetOptions = (&options).into();
 
         let payload = crate::wire::WireMessage::get(dht_hash, r_options).encode()?;
+        let byte_count = payload.len();
 
         let kitsune_p2p = self.kitsune_p2p.clone();
         let tuning_params = self.tuning_params.clone();
         Ok(async move {
             let input = kitsune_p2p::actor::RpcMulti::new(&tuning_params, space, basis, payload);
-            let result = kitsune_p2p
+            let result = call_trace!(("(ct:get)", &r_options2), byte_count, kitsune_p2p
                 .rpc_multi(input)
                 .instrument(tracing::debug_span!("rpc_multi"))
-                .await?;
+                .await)?;
 
             let mut out = Vec::new();
             for item in result {
@@ -1051,12 +1073,13 @@ impl HolochainP2pHandler for HolochainP2pActor {
         let r_options: event::GetMetaOptions = (&options).into();
 
         let payload = crate::wire::WireMessage::get_meta(dht_hash, r_options).encode()?;
+        let byte_count = payload.len();
 
         let kitsune_p2p = self.kitsune_p2p.clone();
         let tuning_params = self.tuning_params.clone();
         Ok(async move {
             let input = kitsune_p2p::actor::RpcMulti::new(&tuning_params, space, basis, payload);
-            let result = kitsune_p2p.rpc_multi(input).await?;
+            let result = call_trace!("(ct:get_meta)", byte_count, kitsune_p2p.rpc_multi(input).await)?;
 
             let mut out = Vec::new();
             for item in result {
@@ -1082,6 +1105,7 @@ impl HolochainP2pHandler for HolochainP2pActor {
         let r_options: event::GetLinksOptions = (&options).into();
 
         let payload = crate::wire::WireMessage::get_links(link_key, r_options).encode()?;
+        let byte_count = payload.len();
 
         let kitsune_p2p = self.kitsune_p2p.clone();
         let tuning_params = self.tuning_params.clone();
@@ -1092,7 +1116,7 @@ impl HolochainP2pHandler for HolochainP2pActor {
             //        without doing any pagination / etc...
             //        Setting up RpcMulti to act like RpcSingle
             input.max_remote_agent_count = 1;
-            let result = kitsune_p2p.rpc_multi(input).await?;
+            let result = call_trace!("(ct:get_links)", byte_count, kitsune_p2p.rpc_multi(input).await)?;
 
             let mut out = Vec::new();
             for item in result {
@@ -1123,6 +1147,7 @@ impl HolochainP2pHandler for HolochainP2pActor {
 
         let payload =
             crate::wire::WireMessage::get_agent_activity(agent, query, r_options).encode()?;
+        let byte_count = payload.len();
 
         let kitsune_p2p = self.kitsune_p2p.clone();
         let tuning_params = self.tuning_params.clone();
@@ -1133,7 +1158,7 @@ impl HolochainP2pHandler for HolochainP2pActor {
             //        without doing any pagination / etc...
             //        Setting up RpcMulti to act like RpcSingle
             input.max_remote_agent_count = 1;
-            let result = kitsune_p2p.rpc_multi(input).await?;
+            let result = call_trace!("(ct:get_agent_activity)", byte_count, kitsune_p2p.rpc_multi(input).await)?;
 
             let mut out = Vec::new();
             for item in result {
@@ -1161,6 +1186,7 @@ impl HolochainP2pHandler for HolochainP2pActor {
         let basis = agent_hash.to_kitsune();
 
         let payload = crate::wire::WireMessage::must_get_agent_activity(agent, filter).encode()?;
+        let byte_count = payload.len();
 
         let kitsune_p2p = self.kitsune_p2p.clone();
         let tuning_params = self.tuning_params.clone();
@@ -1171,7 +1197,7 @@ impl HolochainP2pHandler for HolochainP2pActor {
             //        without doing any pagination / etc...
             //        Setting up RpcMulti to act like RpcSingle
             input.max_remote_agent_count = 1;
-            let result = kitsune_p2p.rpc_multi(input).await?;
+            let result = call_trace!("(ct:must_get_agent_activity)", byte_count, kitsune_p2p.rpc_multi(input).await)?;
 
             let mut out = Vec::new();
             for item in result {
@@ -1196,10 +1222,11 @@ impl HolochainP2pHandler for HolochainP2pActor {
         let to_agent = to_agent.into_kitsune();
 
         let req = crate::wire::WireMessage::validation_receipt(receipt).encode()?;
+        let byte_count = req.len();
 
         let kitsune_p2p = self.kitsune_p2p.clone();
         Ok(async move {
-            kitsune_p2p.rpc_single(space, to_agent, req, None).await?;
+            call_trace!("(ct:send_validation_receipt)", byte_count, kitsune_p2p.rpc_single(space, to_agent, req, None).await)?;
             Ok(())
         }
         .boxed()
@@ -1249,12 +1276,13 @@ impl HolochainP2pHandler for HolochainP2pActor {
 
         let payload =
             crate::wire::WireMessage::countersigning_session_negotiation(message).encode()?;
+        let byte_count = payload.len();
 
         let kitsune_p2p = self.kitsune_p2p.clone();
         Ok(async move {
-            kitsune_p2p
+            call_trace!("(ct:countersigning_session_negotiation)", byte_count, kitsune_p2p
                 .targeted_broadcast(space, agents, timeout, payload, false)
-                .await?;
+                .await)?;
             Ok(())
         }
         .boxed()

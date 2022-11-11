@@ -259,6 +259,7 @@ impl ShardedGossip {
                         }
                         ShardedGossipWire::OpRegions(OpRegions { region_set: _, .. }) => (),
                         ShardedGossipWire::MissingOps(MissingOps { ops, .. }) => {
+                            tracing::trace!(op_count=%ops.len(), "(gossip_send)");
                             state.throughput.op_count.outgoing += ops.len() as u32;
                             state.throughput.op_bytes.outgoing +=
                                 ops.iter().map(|op| op.size() as u32).sum::<u32>();
@@ -283,6 +284,7 @@ impl ShardedGossip {
             })
             .ok();
 
+        let dbg_name = gossip.variant_type();
         let gossip = gossip.encode_vec().map_err(KitsuneError::other)?;
         let bytes = gossip.len();
         let gossip = wire::Wire::gossip(
@@ -290,6 +292,7 @@ impl ShardedGossip {
             gossip.into(),
             self.gossip.gossip_type.into(),
         );
+        tracing::trace!(%dbg_name, %bytes, "(gossip_send)");
 
         let timeout = self.gossip.tuning_params.implicit_timeout();
 
