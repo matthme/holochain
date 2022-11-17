@@ -371,12 +371,20 @@ impl SpaceInternalHandler for Space {
                 all.push(async move {
                     use discover::PeerDiscoverResult;
 
+                    let start = std::time::Instant::now();
+                    let byte_count = data.len();
+
                     // attempt to establish a connection
                     let con_hnd = match discover::peer_connect(ro_inner, &info, timeout).await {
                         PeerDiscoverResult::OkShortcut => return,
                         PeerDiscoverResult::OkRemote { con_hnd, .. } => con_hnd,
                         PeerDiscoverResult::Err(err) => {
-                            tracing::warn!(?err, "broadcast error");
+                            tracing::warn!(
+                                elapsed_s = %start.elapsed().as_secs_f64(),
+                                %byte_count,
+                                ?err,
+                                "(peer_connect) broadcast error",
+                            );
                             return;
                         }
                     };
@@ -387,7 +395,12 @@ impl SpaceInternalHandler for Space {
 
                     // forward the data
                     if let Err(err) = con_hnd.notify(&payload, timeout).await {
-                        tracing::warn!(?err, "broadcast error");
+                        tracing::warn!(
+                            elapsed_s = %start.elapsed().as_secs_f64(),
+                            %byte_count,
+                            ?err,
+                            "(notify) broadcast error",
+                        );
                     }
                 })
             }
