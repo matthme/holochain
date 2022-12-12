@@ -10,10 +10,8 @@
 //! order of last_fetch time, but they are guaranteed to be at least as old as the specified
 //! interval.
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::sync::Arc;
+use tokio::time::{Duration, Instant};
 
 use kitsune_p2p_types::{tx2::tx2_utils::ShareOpen, KAgent, KSpace /*, Tx2Cert*/};
 use linked_hash_map::{Entry, LinkedHashMap};
@@ -108,10 +106,22 @@ pub struct FetchQueueItem {
     pub context: Option<FetchContext>,
 }
 
+#[derive(Debug, PartialEq, Eq, derive_more::Deref)]
+struct SourceRecord(ShareOpen<SourceRecordState>);
+
+impl From<SourceRecordState> for SourceRecord {
+    fn from(srs: SourceRecordState) -> Self {
+        SourceRecord(ShareOpen::new(srs))
+    }
+}
+
+impl SourceRecord {}
+
 #[derive(Debug, PartialEq, Eq)]
-struct SourceRecord {
+struct SourceRecordState {
     source: FetchSource,
     last_fetch: Option<Instant>,
+    delay: Duration,
 }
 
 /// A source to fetch from: either a node, or an agent on a node
@@ -279,17 +289,15 @@ impl<'a> Iterator for StateIter<'a> {
 
 impl SourceRecord {
     fn new(source: FetchSource) -> Self {
-        Self {
+        Self(ShareOpen::new(SourceRecordState {
             source,
             last_fetch: None,
-        }
+            delay: Duration::ZERO,
+        }))
     }
 
     fn agent(agent: KAgent) -> Self {
-        Self {
-            source: FetchSource::Agent(agent),
-            last_fetch: None,
-        }
+        Self::new(FetchSource::Agent(agent))
     }
 }
 
@@ -299,10 +307,14 @@ impl Sources {
             .0
             .iter()
             .enumerate()
-            .find(|(_, s)| s.last_fetch.map(|t| t.elapsed() > interval).unwrap_or(true))
-            .map(|(i, s)| (i, s.source.clone()))
+            .find(|(_, r)| {
+                r.share_ref(|s| s.last_fetch.map(|t| t.elapsed() > interval).unwrap_or(true))
+            })
+            .map(|(i, r)| (i, r.share_ref(|s| s.source.clone())))
         {
-            self.0[i].last_fetch = Some(Instant::now());
+            self.0[i].share_mut(|s| {
+                s.last_fetch = Some(Instant::now());
+            });
             self.0.rotate_left(i + 1);
             Some(agent)
         } else {
@@ -374,14 +386,18 @@ mod tests {
     #[test]
     fn source_rotation() {
         let mut ss = Sources(vec![
-            SourceRecord {
+            SourceRecordState {
                 source: source(1),
                 last_fetch: Some(Instant::now()),
-            },
-            SourceRecord {
+                delay: Duration::ZERO,
+            }
+            .into(),
+            SourceRecordState {
                 source: source(2),
                 last_fetch: None,
-            },
+                delay: Duration::ZERO,
+            }
+            .into(),
         ]);
 
         assert_eq!(ss.next(Duration::from_secs(10)), Some(source(2)));
@@ -420,14 +436,15 @@ mod tests {
     #[test]
     fn queue_next() {
         let mut q = {
-            let mut queue = [
+            let queue = [
                 (key_op(1), item(sources(0..=2), ctx(1))),
                 (key_op(2), item(sources(1..=3), ctx(1))),
                 (key_op(3), item(sources(2..=4), ctx(1))),
             ];
             // Set the last_fetch time of one of the sources to something a bit earlier,
             // so it won't show up in next() right away
-            queue[1].1.sources.0[1].last_fetch = Some(Instant::now() - Duration::from_secs(3));
+            queue[1].1.sources.0[1]
+                .share_mut(|s| s.last_fetch = Some(Instant::now() - Duration::from_secs(3)));
 
             let queue = queue.into_iter().collect();
             State { queue }
@@ -446,5 +463,47 @@ mod tests {
 
         // We traversed all items in the last second, so this returns None
         assert_eq!(q.iter_mut(Duration::from_secs(1)).next(), None);
+    }
+
+    #[tokio::test(flavor = "current_thread", start_paused = true)]
+    async fn queue_exp_backoff() {
+        let sources = [source(1), source(2), source(3)];
+
+        let mut q = State::default();
+        let c = Config;
+        let interval = Duration::from_secs(1);
+
+        fn fetchees(
+            items: &Vec<(
+                FetchKey,
+                Arc<KitsuneSpace>,
+                FetchSource,
+                Option<FetchContext>,
+            )>,
+        ) -> Vec<&FetchSource> {
+            items.iter().map(|i| &i.2).collect()
+        }
+
+        // note: new sources get added to the front of the list
+        q.push(&c, req(1, ctx(0), sources[1].clone()));
+        q.push(&c, req(1, ctx(0), sources[0].clone()));
+
+        q.push(&c, req(2, ctx(0), sources[2].clone()));
+        q.push(&c, req(2, ctx(0), sources[1].clone()));
+
+        q.push(&c, req(3, ctx(0), sources[0].clone()));
+        q.push(&c, req(3, ctx(0), sources[2].clone()));
+
+        let items: Vec<_> = q.iter_mut(interval).take(3).collect();
+        assert_eq!(
+            fetchees(&items),
+            vec![&sources[0], &sources[1], &sources[2]]
+        );
+        tokio::time::advance(interval / 2).await;
+        let items: Vec<_> = q.iter_mut(interval).take(3).collect();
+        // all items have already been visited, so they should not be returned
+        assert_eq!(items.len(), 0);
+
+        let items: Vec<_> = q.iter_mut(interval).take(3).collect();
     }
 }
