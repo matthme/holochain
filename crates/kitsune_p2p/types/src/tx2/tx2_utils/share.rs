@@ -11,6 +11,7 @@ impl<T: 'static + Send> Clone for Share<T> {
 
 impl<T: 'static + Send + std::fmt::Debug> std::fmt::Debug for Share<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // f.debug_tuple("Share").field(&"<hidden>").finish()
         if let Ok(r) = self.share_ref(|s| Ok(f.debug_tuple("Share").field(s).finish())) {
             r
         } else {

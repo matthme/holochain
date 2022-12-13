@@ -48,20 +48,23 @@ mod tests {
     #[test]
     fn queue_info() {
         let cfg = Config(1);
+        let recs = records(&cfg, 0..5);
         let q = {
             let mut queue = [
-                (key_op(1), item(&cfg, sources(0..=2), ctx(1))),
-                (key_op(2), item(&cfg, sources(1..=3), ctx(1))),
-                (key_op(3), item(&cfg, sources(2..=4), ctx(1))),
+                (key_op(1), item(&cfg, recs[0..=2].to_vec(), ctx(1))),
+                (key_op(2), item(&cfg, recs[1..=3].to_vec(), ctx(1))),
+                (key_op(3), item(&cfg, recs[2..=4].to_vec(), ctx(1))),
             ];
 
             queue[0].1.size = Some(100.into());
             queue[1].1.size = Some(1000.into());
 
             let queue = queue.into_iter().collect();
+            // This is not correct but it doesn't matter here.
+            let sources = Default::default();
             FetchQueueReader(FetchQueue {
                 config: Arc::new(Config(1)),
-                state: ShareOpen::new(State { queue }),
+                state: ShareOpen::new(State { queue, sources }),
             })
         };
         let info = q.info([space(0)].into_iter().collect());

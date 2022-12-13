@@ -10,7 +10,7 @@
 //! order of last_fetch time, but they are guaranteed to be at least as old as the specified
 //! interval.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tokio::time::{Duration, Instant};
 
 use kitsune_p2p_types::{tx2::tx2_utils::ShareOpen, KAgent, KSpace /*, Tx2Cert*/};
@@ -69,6 +69,8 @@ pub trait FetchQueueConfig: 'static + Send + Sync {
 pub struct State {
     /// Items ready to be fetched
     queue: LinkedHashMap<FetchKey, FetchQueueItem>,
+    /// Collection of existing sources, for reference sharing
+    sources: HashMap<FetchSource, SourceRecord>,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -76,6 +78,7 @@ impl Default for State {
     fn default() -> Self {
         Self {
             queue: Default::default(),
+            sources: Default::default(),
         }
     }
 }
@@ -89,6 +92,30 @@ pub struct StateIter<'a> {
 /// Fetch item within the fetch queue state.
 #[derive(Debug, PartialEq, Eq)]
 struct Sources(Vec<SourceRecord>);
+
+impl Sources {
+    fn next(&mut self) -> Option<FetchSource> {
+        if let Some((i, agent)) = self
+            .0
+            .iter()
+            .enumerate()
+            .find(|(_, r)| {
+                r.share_ref(|s| {
+                    s.last_fetch
+                        .map(|t| t.elapsed() >= s.retry_delay)
+                        .unwrap_or(true)
+                })
+            })
+            .map(|(i, r)| (i, r.share_ref(|s| s.source.clone())))
+        {
+            self.0[i].share_mut(|s| s.touch());
+            self.0.rotate_left(i + 1);
+            Some(agent)
+        } else {
+            None
+        }
+    }
+}
 
 /// An item in the queue, corresponding to a single op or region to fetch
 #[derive(Debug, PartialEq, Eq)]
@@ -106,7 +133,7 @@ pub struct FetchQueueItem {
     pub context: Option<FetchContext>,
 }
 
-#[derive(Debug, derive_more::Deref)]
+#[derive(Clone, Debug, derive_more::Deref)]
 struct SourceRecord(ShareOpen<SourceRecordState>);
 
 impl From<SourceRecordState> for SourceRecord {
@@ -117,13 +144,33 @@ impl From<SourceRecordState> for SourceRecord {
 
 impl PartialEq for SourceRecord {
     fn eq(&self, other: &Self) -> bool {
-        self.share_ref(|a| other.share_ref(|b| a == b))
+        if self.0 == other.0 {
+            // If arcs are equal, we are looking at the same Mutex,
+            // and we would not want to double-lock it as below!
+            true
+        } else {
+            // Safe to do this nested lock as long as the two mutexes
+            // are different.
+            self.share_ref(|a| other.share_ref(|b| a == b))
+        }
     }
 }
 
 impl Eq for SourceRecord {}
 
-impl SourceRecord {}
+impl SourceRecord {
+    fn new(config: &dyn FetchQueueConfig, source: FetchSource) -> Self {
+        Self(ShareOpen::new(SourceRecordState {
+            source,
+            last_fetch: None,
+            retry_delay: config.fetch_retry_interval(),
+        }))
+    }
+
+    fn agent(config: &dyn FetchQueueConfig, agent: KAgent) -> Self {
+        Self::new(config, FetchSource::Agent(agent))
+    }
+}
 
 #[derive(Debug, PartialEq, Eq)]
 struct SourceRecordState {
@@ -242,16 +289,18 @@ impl State {
             size,
         } = args;
 
+        let sources = if let Some(author) = author {
+            vec![
+                self.source_record(config, source),
+                self.source_record(config, FetchSource::Agent(author)),
+            ]
+        } else {
+            vec![self.source_record(config, source)]
+        };
+
         match self.queue.entry(key) {
             Entry::Vacant(e) => {
-                let sources = if let Some(author) = author {
-                    Sources(vec![
-                        SourceRecord::new(config, source),
-                        SourceRecord::agent(config, author),
-                    ])
-                } else {
-                    Sources(vec![SourceRecord::new(config, source)])
-                };
+                let sources = Sources(sources);
                 let item = FetchQueueItem {
                     sources,
                     space,
@@ -263,7 +312,10 @@ impl State {
             }
             Entry::Occupied(mut e) => {
                 let v = e.get_mut();
-                v.sources.0.insert(0, SourceRecord::new(config, source));
+                // Insert the new source(s) at the front of the list
+                for source in sources.into_iter().rev() {
+                    v.sources.0.insert(0, source);
+                }
                 v.options = options;
                 v.context = match (v.context.take(), context) {
                     (Some(a), Some(b)) => Some(config.merge_fetch_contexts(*a, *b).into()),
@@ -284,6 +336,15 @@ impl State {
     /// When an item has been successfully fetched, we can remove it from the queue.
     pub fn remove(&mut self, key: &FetchKey) -> Option<FetchQueueItem> {
         self.queue.remove(key)
+    }
+
+    fn source_record(&mut self, config: &dyn FetchQueueConfig, key: FetchSource) -> SourceRecord {
+        let sr: SourceRecord = self
+            .sources
+            .entry(key.clone())
+            .or_insert_with(|| SourceRecord::new(config, key))
+            .clone();
+        sr
     }
 }
 
@@ -306,44 +367,6 @@ impl<'a> Iterator for StateIter<'a> {
             }
         }
         None
-    }
-}
-
-impl SourceRecord {
-    fn new(config: &dyn FetchQueueConfig, source: FetchSource) -> Self {
-        Self(ShareOpen::new(SourceRecordState {
-            source,
-            last_fetch: None,
-            retry_delay: config.fetch_retry_interval(),
-        }))
-    }
-
-    fn agent(config: &dyn FetchQueueConfig, agent: KAgent) -> Self {
-        Self::new(config, FetchSource::Agent(agent))
-    }
-}
-
-impl Sources {
-    fn next(&mut self) -> Option<FetchSource> {
-        if let Some((i, agent)) = self
-            .0
-            .iter()
-            .enumerate()
-            .find(|(_, r)| {
-                r.share_ref(|s| {
-                    s.last_fetch
-                        .map(|t| t.elapsed() >= s.retry_delay)
-                        .unwrap_or(true)
-                })
-            })
-            .map(|(i, r)| (i, r.share_ref(|s| s.source.clone())))
-        {
-            self.0[i].share_mut(|s| s.touch());
-            self.0.rotate_left(i + 1);
-            Some(agent)
-        } else {
-            None
-        }
     }
 }
 
@@ -387,16 +410,11 @@ mod tests {
 
     pub(super) fn item(
         cfg: &dyn FetchQueueConfig,
-        sources: Vec<FetchSource>,
+        records: Vec<SourceRecord>,
         context: Option<FetchContext>,
     ) -> FetchQueueItem {
         FetchQueueItem {
-            sources: Sources(
-                sources
-                    .into_iter()
-                    .map(|s| SourceRecord::new(cfg, s))
-                    .collect(),
-            ),
+            sources: Sources(records),
             space: Arc::new(KitsuneSpace::new(vec![0; 36])),
             options: Default::default(),
             context,
@@ -414,6 +432,17 @@ mod tests {
 
     pub(super) fn sources(ix: impl IntoIterator<Item = u8>) -> Vec<FetchSource> {
         ix.into_iter().map(source).collect()
+    }
+
+    pub(super) fn record(cfg: &dyn FetchQueueConfig, i: u8) -> SourceRecord {
+        SourceRecord::new(cfg, source(i))
+    }
+
+    pub(super) fn records(
+        cfg: &dyn FetchQueueConfig,
+        ix: impl IntoIterator<Item = u8>,
+    ) -> Vec<SourceRecord> {
+        ix.into_iter().map(|r| record(cfg, r)).collect()
     }
 
     pub(super) fn ctx(c: u32) -> Option<FetchContext> {
@@ -465,30 +494,42 @@ mod tests {
         let mut q = State::default();
         let c = Config(1);
 
+        dbg!();
         // note: new sources get added to the front of the list
         q.push(&c, req(1, ctx(1), source(1)));
+        dbg!();
         q.push(&c, req(1, ctx(0), source(0)));
+        dbg!();
 
         q.push(&c, req(2, ctx(0), source(0)));
+        dbg!();
+
+        let rec0 = q.source_record(&c, source(0));
+        dbg!();
+        let rec1 = q.source_record(&c, source(1));
+        dbg!();
 
         let expected_ready = [
-            (key_op(1), item(&c, sources(0..=1), ctx(1))),
-            (key_op(2), item(&c, sources([0]), ctx(0))),
+            (key_op(1), item(&c, vec![rec0.clone(), rec1], ctx(1))),
+            (key_op(2), item(&c, vec![rec0], ctx(0))),
         ]
         .into_iter()
         .collect();
+        dbg!(q.queue == expected_ready);
 
         assert_eq!(q.queue, expected_ready);
+        dbg!();
     }
 
     #[tokio::test(start_paused = true)]
     async fn queue_next() {
         let c = Config(10);
+        let recs = records(&c, 0..9);
         let mut q = {
             let queue = [
-                (key_op(1), item(&c, sources(0..=2), ctx(1))),
-                (key_op(2), item(&c, sources(1..=3), ctx(1))),
-                (key_op(3), item(&c, sources(2..=4), ctx(1))),
+                (key_op(1), item(&c, recs[0..3].to_vec(), ctx(1))),
+                (key_op(2), item(&c, recs[3..6].to_vec(), ctx(1))),
+                (key_op(3), item(&c, recs[6..9].to_vec(), ctx(1))),
             ];
             // Set the last_fetch time of one of the sources to something a bit earlier,
             // so it won't show up in next() right away
@@ -496,7 +537,9 @@ mod tests {
                 .share_mut(|s| s.last_fetch = Some(Instant::now() - Duration::from_secs(3)));
 
             let queue = queue.into_iter().collect();
-            State { queue }
+            // XXX: this is wrong but ok for this test.
+            let sources = Default::default();
+            State { queue, sources }
         };
         assert_eq!(q.iter_mut().count(), 8);
 
@@ -505,7 +548,7 @@ mod tests {
         // The next (and only) item will be the one with the timestamp explicitly set
         assert_eq!(
             q.iter_mut().collect::<Vec<_>>(),
-            vec![(key_op(2), space(0), source(2), ctx(1))]
+            vec![(key_op(2), space(0), source(4), ctx(1))]
         );
 
         // wait long enough for all items to retry
@@ -513,7 +556,7 @@ mod tests {
 
         // When traversing the entire queue again, the "special" item is still the last one.
         let items: Vec<_> = q.iter_mut().take(9).collect();
-        assert_eq!(items[8], (key_op(2), space(0), source(2), ctx(1)));
+        assert_eq!(items[8], (key_op(2), space(0), source(4), ctx(1)));
 
         // It would take 20 seconds to retry most items, so we get no results until at least that long.
         tokio::time::advance(Duration::from_secs(19)).await;
@@ -522,10 +565,9 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn queue_exp_backoff() {
-        let sources = [source(1), source(2), source(3)];
+        let cfg = Config(1);
 
         let mut q = State::default();
-        let c = Config(1);
 
         fn fetchees(
             items: &Vec<(
@@ -539,20 +581,17 @@ mod tests {
         }
 
         // note: new sources get added to the front of the list
-        q.push(&c, req(1, ctx(0), sources[1].clone()));
-        q.push(&c, req(1, ctx(0), sources[0].clone()));
+        q.push(&cfg, req(1, ctx(0), source(1)));
+        q.push(&cfg, req(1, ctx(0), source(0)));
 
-        q.push(&c, req(2, ctx(0), sources[2].clone()));
-        q.push(&c, req(2, ctx(0), sources[1].clone()));
+        q.push(&cfg, req(2, ctx(0), source(2)));
+        q.push(&cfg, req(2, ctx(0), source(1)));
 
-        q.push(&c, req(3, ctx(0), sources[0].clone()));
-        q.push(&c, req(3, ctx(0), sources[2].clone()));
+        q.push(&cfg, req(3, ctx(0), source(0)));
+        q.push(&cfg, req(3, ctx(0), source(2)));
 
         let items: Vec<_> = q.iter_mut().take(3).collect();
-        assert_eq!(
-            fetchees(&items),
-            vec![&sources[0], &sources[1], &sources[2]]
-        );
+        assert_eq!(fetchees(&items), vec![&source(0), &source(1), &source(2)]);
 
         dbg!(&q);
 
