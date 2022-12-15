@@ -3,7 +3,7 @@ use holochain_types::prelude::*;
 use holochain_zome_types::cell::CellId;
 use kitsune_p2p::agent_store::AgentInfoSigned;
 
-use crate::{AppInfo, FullStateDump};
+use crate::{FullStateDump, InstalledAppInfo};
 
 /// Represents the available conductor functions to call over an admin interface.
 ///
@@ -255,8 +255,8 @@ pub enum AdminRequest {
     ///
     /// # Returns
     ///
-    /// [`AdminResponse::AgentInfo`]
-    AgentInfo {
+    /// [`AdminResponse::AgentInfoRequested`]
+    RequestAgentInfo {
         /// Optionally choose the agent info of a specific cell.
         cell_id: Option<CellId>,
     },
@@ -354,10 +354,10 @@ pub enum AdminResponse {
 
     /// The successful response to an [`AdminRequest::InstallApp`].
     ///
-    /// The resulting [`AppInfo`] contains the app ID,
-    /// the [`RoleName`]s and, most usefully, [`CellInfo`](crate::CellInfo)s
+    /// The resulting [`InstalledAppInfo`] contains the app ID,
+    /// the [`RoleName`]s and, most usefully, the new [`CellId`]s
     /// of the newly installed DNAs.
-    AppInstalled(AppInfo),
+    AppInstalled(InstalledAppInfo),
 
     /// The successful response to an [`AdminRequest::UninstallApp`].
     ///
@@ -387,7 +387,7 @@ pub enum AdminResponse {
     /// The successful response to an [`AdminRequest::ListApps`].
     ///
     /// Contains a list of the `InstalledAppInfo` of the installed apps in the conductor.
-    AppsListed(Vec<AppInfo>),
+    AppsListed(Vec<InstalledAppInfo>),
 
     /// The successful response to an [`AdminRequest::AttachAppInterface`].
     ///
@@ -408,7 +408,7 @@ pub enum AdminResponse {
     /// put the app in a running state, it will be running, otherwise it will
     /// be paused.
     AppEnabled {
-        app: AppInfo,
+        app: InstalledAppInfo,
         errors: Vec<(CellId, String)>,
     },
 
@@ -449,10 +449,10 @@ pub enum AdminResponse {
     /// This means the agent info was successfully added to the peer store.
     AgentInfoAdded,
 
-    /// The successful response to an [`AdminRequest::AgentInfo`].
+    /// The successful response to an [`AdminRequest::RequestAgentInfo`].
     ///
     /// This is all the agent info that was found for the request.
-    AgentInfo(Vec<AgentInfoSigned>),
+    AgentInfoRequested(Vec<AgentInfoSigned>),
 
     /// The successful response to an [`AdminRequest::GraftRecords`].
     RecordsGrafted,

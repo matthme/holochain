@@ -14,7 +14,7 @@ use holochain_conductor_api::AdminRequest;
 use holochain_conductor_api::AdminResponse;
 use holochain_conductor_api::AppStatusFilter;
 use holochain_conductor_api::InterfaceDriver;
-use holochain_conductor_api::{AdminInterfaceConfig, AppInfo};
+use holochain_conductor_api::{AdminInterfaceConfig, InstalledAppInfo};
 use holochain_p2p::kitsune_p2p::agent_store::AgentInfoSigned;
 use holochain_types::prelude::DnaHash;
 use holochain_types::prelude::DnaModifiersOpt;
@@ -421,7 +421,10 @@ pub async fn register_dna(cmd: &mut CmdRunner, args: RegisterDna) -> anyhow::Res
 }
 
 /// Calls [`AdminRequest::InstallApp`] and installs a new app.
-pub async fn install_app_bundle(cmd: &mut CmdRunner, args: InstallApp) -> anyhow::Result<AppInfo> {
+pub async fn install_app_bundle(
+    cmd: &mut CmdRunner,
+    args: InstallApp,
+) -> anyhow::Result<InstalledAppInfo> {
     let InstallApp {
         app_id,
         agent_key,
@@ -498,7 +501,10 @@ pub async fn list_cell_ids(cmd: &mut CmdRunner) -> anyhow::Result<Vec<CellId>> {
 }
 
 /// Calls [`AdminRequest::ListApps`].
-pub async fn list_apps(cmd: &mut CmdRunner, args: ListApps) -> anyhow::Result<Vec<AppInfo>> {
+pub async fn list_apps(
+    cmd: &mut CmdRunner,
+    args: ListApps,
+) -> anyhow::Result<Vec<InstalledAppInfo>> {
     let resp = cmd
         .command(AdminRequest::ListApps {
             status_filter: args.status,
@@ -574,17 +580,17 @@ pub async fn add_agent_info(cmd: &mut CmdRunner, args: Vec<AgentInfoSigned>) -> 
     Ok(())
 }
 
-/// Calls [`AdminRequest::AgentInfo`] and pretty prints the agent info on this conductor.
+/// Calls [`AdminRequest::RequestAgentInfo`] and pretty prints the agent info on this conductor.
 pub async fn request_agent_info(
     cmd: &mut CmdRunner,
     args: ListAgents,
 ) -> anyhow::Result<Vec<AgentInfoSigned>> {
     let resp = cmd
-        .command(AdminRequest::AgentInfo {
+        .command(AdminRequest::RequestAgentInfo {
             cell_id: args.into(),
         })
         .await?;
-    Ok(expect_match!(resp => AdminResponse::AgentInfo, "Failed to request agent info"))
+    Ok(expect_match!(resp => AdminResponse::AgentInfoRequested, "Failed to request agent info"))
 }
 
 fn parse_agent_key(arg: &str) -> anyhow::Result<AgentPubKey> {
