@@ -1,7 +1,6 @@
-{ nixpkgs ? import <nixpkgs> { }
+{ nixpkgs ? import <nixpkgs> {}
 , flavor ? "coreDevRustup"
-, ...
-} @ args:
+, ... } @ args:
 
 let
   default = import (builtins.toString ./default.nix) { inherit nixpkgs; };

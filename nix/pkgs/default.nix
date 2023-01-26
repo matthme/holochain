@@ -79,6 +79,6 @@ let
 in
 builtins.mapAttrs
   (k: v:
-  builtins.removeAttrs v [ "override" "overrideDerivation" ]
+    builtins.removeAttrs v [ "override" "overrideDerivation" ]
   )
   all
