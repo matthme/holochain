@@ -16,7 +16,7 @@
         pname = "holochain";
         src = flake.config.srcCleaned;
 
-        version = builtins.toString self.lastModified;
+        version = "workspace";
 
         CARGO_PROFILE = "";
 
