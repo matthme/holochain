@@ -62,8 +62,7 @@
         RUST_SODIUM_SHARED = "1";
         pname = "holochain-tests";
         CARGO_PROFILE = "fast-test";
-        cargoExtraArgs =
-          "--features slow_tests,glacial_tests,test_utils,build_wasms,db-encryption --lib --tests";
+        cargoExtraArgs = import ../../.config/test-args.nix;
       });
 
       holochainNextestDeps = craneLib.buildDepsOnly (commonArgs // rec {
@@ -71,11 +70,14 @@
         RUST_SODIUM_SHARED = "1";
         pname = "holochain-nextest";
         CARGO_PROFILE = "fast-test";
-        cargoExtraArgs =
-          "--features slow_tests,glacial_tests,test_utils,build_wasms,db-encryption --lib --tests";
+        cargoExtraArgs = import ../../.config/test-args.nix;
         nativeBuildInputs = [ pkgs.cargo-nextest ];
+
         buildPhase = ''
-          cargo nextest list ${import ../../.config/nextest-args.nix}
+          cargo nextest list \
+                    ${import ../../.config/test-args.nix} \
+                    ${import ../../.config/nextest-args.nix} \
+                    ${lib.concatStringsSep " " disabledTestsArgs}
         '';
         dontCheck = true;
       });
@@ -118,9 +120,8 @@
           # rm /build/source/target/debug/.fingerprint/holochain_wasm_test_utils-*/invoked.timestamp
           # rm /build/source/target/debug/.fingerprint/holochain_test_wasm_common-*/invoked.timestamp
         '';
-        # cargoExtraArgs = "--features slow_tests,glacial_tests,test_utils,build_wasms,db-encryption";
-        # CARGO_PROFILE = "release";
         cargoExtraArgs = ''
+          ${import ../../.config/test-args.nix} \
           ${import ../../.config/nextest-args.nix} \
           ${lib.concatStringsSep " " disabledTestsArgs}
         '';
