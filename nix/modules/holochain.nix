@@ -11,7 +11,7 @@
 
       opensslStatic = pkgs.pkgsStatic.openssl;
 
-      commonArgs = {
+      commonArgs = ({
 
         pname = "holochain";
         src = flake.config.srcCleaned;
@@ -36,7 +36,13 @@
         nativeBuildInputs = (with pkgs; [ makeWrapper perl pkg-config ])
           ++ lib.optionals pkgs.stdenv.isDarwin
           (with pkgs; [ xcbuild libiconv ]);
-      };
+
+      } // lib.optionalAttrs pkgs.stdenv.isDarwin {
+        configurePhase = ''
+          export DYLD_FALLBACK_LIBRARY_PATH="${rustToolchain}/lib"
+          echo DYLD_FALLBACK_LIBRARY_PATH=''${DYLD_FALLBACK_LIBRARY_PATH:?}
+        '';
+      });
 
       # derivation building all dependencies
       holochainDeps = craneLib.buildDepsOnly (commonArgs // rec {
@@ -96,15 +102,14 @@
         __impure = pkgs.stdenv.isLinux;
         cargoArtifacts = holochainTestDeps;
         CARGO_PROFILE = "fast-test";
-        cargoExtraArgs =
-          "--features slow_tests,glacial_tests,test_utils,build_wasms,db-encryption --lib --tests";
+        cargoExtraArgs = import ../../.config/test-args.nix;
 
         dontPatchELF = true;
         dontFixup = true;
         installPhase = "mkdir $out";
       });
 
-      holochain-tests-nextest' = craneLib.cargoNextest (commonArgs // {
+      holochain-tests-nextest = craneLib.cargoNextest (commonArgs // {
         pname = "holochain-nextest";
         __impure = pkgs.stdenv.isLinux;
         cargoArtifacts = holochainNextestDeps;
@@ -127,12 +132,6 @@
         installPhase = "mkdir $out";
 
         # cargoNextestExtraArgs = lib.concatStringsSep " " disabledTestsArgs;
-      });
-
-      holochain-tests-nextest = holochain-tests-nextest'.overrideAttrs (old: {
-        buildInputs = old.buildInputs
-          ++ (lib.filter (b: lib.hasPrefix "rust-default-" b.name)
-            old.nativeBuildInputs);
       });
 
       holochain-tests-fmt = craneLib.cargoFmt (commonArgs // {
