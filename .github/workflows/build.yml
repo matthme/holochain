@@ -8,8 +8,9 @@ jobs:
       fail-fast: false
       matrix:
         nixCommand:
-          - "nix build .#holochain --no-link"
-          # - "nix build .#holochain-tests-nextest --no-link"
+          - "nix build .#holochain .#holochain-tests-fmt .#holochain-tests-clippy --no-link"
+          - "nix build .#holochain-tests-nextest --no-link"
+          - "nix build .#holochain-tests-wasm --no-link"
         platform:
           - system: x86_64-darwin
             runs-on: multi-arch
