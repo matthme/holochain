@@ -108,7 +108,6 @@
 
         dontPatchELF = true;
         dontFixup = true;
-        installPhase = "mkdir $out";
       });
 
       holochain-tests-nextest = craneLib.cargoNextest (commonArgs // {
