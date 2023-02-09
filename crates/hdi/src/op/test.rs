@@ -88,31 +88,31 @@ fn test_activity_entry(
 
 #[test_case(
     EntryType::App(public_app_entry_def(0, 0)), RecordEntry::Present(e(A{}))
-    => matches Ok(InScopeEntry::App(EntryTypes::A(A{}))) ; "a")]
+    => matches Ok(InScopeAppEntry::Entry(EntryTypes::A(A{}))) ; "a")]
 #[test_case(
     EntryType::App(public_app_entry_def(0, 1)), RecordEntry::Present(e(B{}))
-    => matches Ok(InScopeEntry::App(EntryTypes::B(B{}))) ; "b")]
+    => matches Ok(InScopeAppEntry::Entry(EntryTypes::B(B{}))) ; "b")]
 #[test_case(
     EntryType::App(public_app_entry_def(0, 2)), RecordEntry::Present(e(C{}))
-    => matches Ok(InScopeEntry::App(EntryTypes::C(C{}))) ; "c")]
+    => matches Ok(InScopeAppEntry::Entry(EntryTypes::C(C{}))) ; "c")]
 #[test_case(
     EntryType::App(private_app_entry_def(0, 0)), RecordEntry::Hidden
-    => matches Ok(InScopeEntry::PrivateApp(UnitEntryTypes::A)) ; "private a")]
+    => matches Ok(InScopeAppEntry::EntryType(UnitEntryTypes::A)) ; "private a")]
 #[test_case(
     EntryType::App(private_app_entry_def(0, 1)), RecordEntry::Hidden
-    => matches Ok(InScopeEntry::PrivateApp(UnitEntryTypes::B)) ; "private b")]
+    => matches Ok(InScopeAppEntry::EntryType(UnitEntryTypes::B)) ; "private b")]
 #[test_case(
     EntryType::App(private_app_entry_def(0, 2)), RecordEntry::Hidden
-    => matches Ok(InScopeEntry::PrivateApp(UnitEntryTypes::C)) ; "private c")]
+    => matches Ok(InScopeAppEntry::EntryType(UnitEntryTypes::C)) ; "private c")]
 #[test_case(
     EntryType::AgentPubKey, RecordEntry::Present(Entry::Agent(eh(0).into()))
-    => matches Ok(InScopeEntry::Agent(_)) ; "agent")]
+    => matches Ok(InScopeAppEntry::None) ; "agent")]
 #[test_case(
     EntryType::CapClaim, RecordEntry::Hidden
-    => matches Ok(InScopeEntry::CapClaim) ; "cap claim")]
+    => matches Ok(InScopeAppEntry::None) ; "cap claim")]
 #[test_case(
     EntryType::CapGrant, RecordEntry::Hidden
-    => matches Ok(InScopeEntry::CapGrant) ; "cap grant")]
+    => matches Ok(InScopeAppEntry::None) ; "cap grant")]
 #[test_case(
     EntryType::App(public_app_entry_def(0, 0)), RecordEntry::Present(e(D::default()))
     => matches Err(WasmErrorInner::Serialize(_)) ; "deserialization failure")]
@@ -176,7 +176,7 @@ fn test_activity_entry(
 fn test_map_entry(
     entry_type: EntryType,
     entry: RecordEntry,
-) -> Result<InScopeEntry<EntryTypes>, WasmErrorInner> {
+) -> Result<InScopeAppEntry<EntryTypes>, WasmErrorInner> {
     set_zome_types(&[(0, 3)], &[(0, 3)]);
     map_entry::<EntryTypes>(&entry_type, &eh(0), (&entry).into()).map_err(|e| e.error)
 }
