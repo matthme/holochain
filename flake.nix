@@ -38,7 +38,15 @@
     };
 
     versions = {
-      url = "github:holochain/holochain?dir=versions/0_1";
+      url = "path:./versions/0_2";
+    };
+
+    versions_0_1 = {
+      url = "path:./versions/0_1";
+    };
+
+    versions_0_2 = {
+      url = "path:./versions/0_2";
     };
 
     holochain.follows = "versions/holochain";
