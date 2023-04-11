@@ -35,15 +35,15 @@
         set -xeuo pipefail
         trap "cd $PWD" EXIT
 
-        cd versions/0_1
+        cd ''${1}
         nix flake update
         cd ../../
 
-        nix flake lock --update-input versions --override-input versions "path:./versions/0_1"
+        nix flake lock --update-input versions --override-input versions "path:''${1}"
 
-        if [[ $(${pkgs.git}/bin/git diff -- flake.lock versions/*/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
+        if [[ $(${pkgs.git}/bin/git diff -- flake.lock ''${1}/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
           echo got no actual source changes, reverting modifications..;
-          ${pkgs.git}/bin/git checkout flake.lock versions/*/flake.lock
+          ${pkgs.git}/bin/git checkout flake.lock ''${1}/flake.lock
         fi
       '';
     };
