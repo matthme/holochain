@@ -2,7 +2,10 @@ use super::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// Data specific to the [`Op::StoreRecord`] operation.
-pub enum OpRecord<ET: UnitEnum, LT> {
+pub enum OpRecord<ET, LT>
+where
+    ET: UnitEnum,
+{
     /// This operation stores the [`Record`] for an
     /// app defined entry type.
     CreateEntry {

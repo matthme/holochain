@@ -73,7 +73,7 @@ be easier to work with than the bare `Op`. `FlatOp` contains the
 same information as `Op` but with a flatter, more accessible data structure than `Op`'s deeply nested and concise structure.
 
 ```rust
-match op.flattened()? {
+match op.to_type()? {
     FlatOp::StoreEntry(OpEntry::CreateEntry { app_entry, .. }) => match app_entry {
         EntryTypes::A(_) => Ok(ValidateCallbackResult::Valid),
         EntryTypes::B(_) => Ok(ValidateCallbackResult::Invalid(

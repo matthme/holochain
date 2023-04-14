@@ -2613,7 +2613,6 @@ dependencies = [
 name = "test_wasm_debug"
 version = "0.0.1"
 dependencies = [
- "hdi",
  "hdk",
  "serde",
  "tracing",
