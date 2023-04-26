@@ -216,6 +216,7 @@ impl SweetConductor {
         installed_app_id: &str,
         agent: AgentPubKey,
         roles: &[DnaWithRole],
+        membrane_proof: Option<MembraneProof>,
     ) -> ConductorApiResult<()> {
         let installed_app_id = installed_app_id.to_string();
 
@@ -223,7 +224,10 @@ impl SweetConductor {
             .iter()
             .map(|r| {
                 let cell_id = CellId::new(r.dna.dna_hash().clone(), agent.clone());
-                (InstalledCell::new(cell_id, r.role.clone()), None)
+                (
+                    InstalledCell::new(cell_id, r.role.clone()),
+                    membrane_proof.clone(),
+                )
             })
             .collect();
         self.raw_handle()
@@ -271,6 +275,39 @@ impl SweetConductor {
     }
 
     /// Opinionated app setup.
+    /// Creates an app for the given agent, using the given DnaFiles, with a common mem_proof.
+    pub async fn setup_app_for_agent_with_mem_proof<'a, R, D>(
+        &mut self,
+        installed_app_id: &str,
+        agent: AgentPubKey,
+        roles: D,
+        membrane_proof: Option<MembraneProof>,
+    ) -> ConductorApiResult<SweetApp>
+    where
+        R: Into<DnaWithRole> + Clone + 'a,
+        D: IntoIterator<Item = &'a R>,
+    {
+        let roles: Vec<DnaWithRole> = roles.into_iter().cloned().map(Into::into).collect();
+        let dnas = roles.iter().map(|r| &r.dna).collect::<Vec<_>>();
+        self.setup_app_1_register_dna(&dnas).await?;
+        self.setup_app_2_install_and_enable(
+            installed_app_id,
+            agent.clone(),
+            roles.as_slice(),
+            membrane_proof,
+        )
+        .await?;
+
+        self.raw_handle()
+            .reconcile_cell_status_with_app_status()
+            .await?;
+
+        let dna_hashes = roles.iter().map(|r| r.dna.dna_hash().clone());
+        self.setup_app_3_create_sweet_app(installed_app_id, agent, dna_hashes)
+            .await
+    }
+
+    /// Opinionated app setup.
     /// Creates an app for the given agent, using the given DnaFiles, with no extra configuration.
     pub async fn setup_app_for_agent<'a, R, D>(
         &mut self,
@@ -285,8 +322,13 @@ impl SweetConductor {
         let roles: Vec<DnaWithRole> = roles.into_iter().cloned().map(Into::into).collect();
         let dnas = roles.iter().map(|r| &r.dna).collect::<Vec<_>>();
         self.setup_app_1_register_dna(&dnas).await?;
-        self.setup_app_2_install_and_enable(installed_app_id, agent.clone(), roles.as_slice())
-            .await?;
+        self.setup_app_2_install_and_enable(
+            installed_app_id,
+            agent.clone(),
+            roles.as_slice(),
+            None,
+        )
+        .await?;
 
         self.raw_handle()
             .reconcile_cell_status_with_app_status()
@@ -328,6 +370,7 @@ impl SweetConductor {
         app_id_prefix: &str,
         agents: A,
         roles: D,
+        membrane_proof: Vec<Option<MembraneProof>>,
     ) -> ConductorApiResult<SweetAppBatch>
     where
         A: IntoIterator<Item = &'a AgentPubKey>,
@@ -338,12 +381,13 @@ impl SweetConductor {
         let roles: Vec<DnaWithRole> = roles.into_iter().cloned().map(Into::into).collect();
         let dnas: Vec<&DnaFile> = roles.iter().map(|r| &r.dna).collect();
         self.setup_app_1_register_dna(dnas.as_slice()).await?;
-        for &agent in agents.iter() {
+        for (i, &agent) in agents.iter().enumerate() {
             let installed_app_id = format!("{}{}", app_id_prefix, agent);
             self.setup_app_2_install_and_enable(
                 &installed_app_id,
                 agent.to_owned(),
                 roles.as_slice(),
+                membrane_proof[i].to_owned(),
             )
             .await?;
         }
