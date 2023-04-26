@@ -370,7 +370,6 @@ impl SweetConductor {
         app_id_prefix: &str,
         agents: A,
         roles: D,
-        membrane_proof: Vec<Option<MembraneProof>>,
     ) -> ConductorApiResult<SweetAppBatch>
     where
         A: IntoIterator<Item = &'a AgentPubKey>,
@@ -381,13 +380,13 @@ impl SweetConductor {
         let roles: Vec<DnaWithRole> = roles.into_iter().cloned().map(Into::into).collect();
         let dnas: Vec<&DnaFile> = roles.iter().map(|r| &r.dna).collect();
         self.setup_app_1_register_dna(dnas.as_slice()).await?;
-        for (i, &agent) in agents.iter().enumerate() {
+        for &agent in agents.iter() {
             let installed_app_id = format!("{}{}", app_id_prefix, agent);
             self.setup_app_2_install_and_enable(
                 &installed_app_id,
                 agent.to_owned(),
                 roles.as_slice(),
-                membrane_proof[i].to_owned(),
+                None,
             )
             .await?;
         }
