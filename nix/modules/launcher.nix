@@ -37,7 +37,9 @@
             Security
             IOKit
             WebKit
-          ]));
+          ]))
+          ++ self'.packages.holochain.buildInputs
+        ;
 
 
         nativeBuildInputs =
@@ -53,7 +55,9 @@
           ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs; [
             xcbuild
             libiconv
-          ]);
+          ])
+          ++ self'.packages.holochain.nativeBuildInputs
+        ;
 
         doCheck = false;
       };
