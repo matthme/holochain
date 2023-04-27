@@ -66,10 +66,12 @@ jobs:
           fi
 
           # first build all derivations. this could be enough for test derivations.
-          nix build -L --show-trace \
-            ${{ matrix.cmd.extra_arg }} \
-            --override-input versions ./versions/0_1 \
-            .#packages.${system}.${{ join(matrix.cmd.pkgs, ' .#packages.${system}.')}}
+          for versions in versions/*; do
+            nix build -L --show-trace \
+              ${{ matrix.cmd.extra_arg }} \
+              --override-input versions ./$versions \
+              .#packages.${system}.${{ join(matrix.cmd.pkgs, ' .#packages.${system}.')}}
+          done
 
           # TODO: remove this once we've implemented all tests and know that we don't need it
           # if there's something to run we generate separate commands
