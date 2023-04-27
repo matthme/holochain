@@ -23,6 +23,9 @@
           (with pkgs; [
             openssl
             glib
+
+            # TODO: remove this once the features have been rearranged to use vendored sqlite
+            sqlite
           ])
           ++ (lib.optionals pkgs.stdenv.isLinux
             (with pkgs; [
@@ -38,7 +41,7 @@
             IOKit
             WebKit
           ]))
-          ++ self'.packages.holochain.buildInputs
+          # ++ self'.packages.holochain.buildInputs
         ;
 
 
@@ -47,6 +50,7 @@
           [
             perl
             pkg-config
+            go
           ])
           ++ (lib.optionals pkgs.stdenv.isLinux
             (with pkgs; [
@@ -56,7 +60,7 @@
             xcbuild
             libiconv
           ])
-          ++ self'.packages.holochain.nativeBuildInputs
+          # ++ self'.packages.holochain.nativeBuildInputs
         ;
 
         doCheck = false;
