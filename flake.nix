@@ -37,17 +37,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    versions = {
-      url = "path:./versions/0_2";
-    };
+    versions_0_1.url = "github:holochain/holochain/pr_versions_0_2_experiment?dir=versions/0_1";
+    versions_0_2.url = "github:holochain/holochain/pr_versions_0_2_experiment?dir=versions/0_2";
 
-    versions_0_1 = {
-      url = "path:./versions/0_1";
-    };
-
-    versions_0_2 = {
-      url = "path:./versions/0_2";
-    };
+    versions.url = "github:holochain/holochain/pr_versions_0_2_experiment?dir=versions/0_2";
 
     holochain.follows = "versions/holochain";
     holochain.flake = false;
