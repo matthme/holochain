@@ -1,41 +1,5 @@
 {
   "nodes": {
-    "0_1": {
-      "inputs": {
-        "holochain": "holochain",
-        "lair": "lair",
-        "launcher": "launcher",
-        "scaffolding": "scaffolding"
-      },
-      "locked": {
-        "lastModified": 1,
-        "narHash": "sha256-LeDONDrsLwNRhoJVy/bHAR0nGgeGnc3OTGTvxeR3e5I=",
-        "path": "./versions/0_1",
-        "type": "path"
-      },
-      "original": {
-        "path": "./versions/0_1",
-        "type": "path"
-      }
-    },
-    "0_2": {
-      "inputs": {
-        "holochain": "holochain_2",
-        "lair": "lair_2",
-        "launcher": "launcher_2",
-        "scaffolding": "scaffolding_2"
-      },
-      "locked": {
-        "lastModified": 1,
-        "narHash": "sha256-GQhcAFcGyV2r6r8JlAHIKCfqtBAyEOJHPSWrIkiH20o=",
-        "path": "./versions/0_2",
-        "type": "path"
-      },
-      "original": {
-        "path": "./versions/0_2",
-        "type": "path"
-      }
-    },
     "holochain": {
       "flake": false,
       "locked": {
@@ -140,8 +104,8 @@
     },
     "root": {
       "inputs": {
-        "0_1": "0_1",
-        "0_2": "0_2"
+        "versions_0_1": "versions_0_1",
+        "versions_0_2": "versions_0_2"
       }
     },
     "scaffolding": {
@@ -176,6 +140,42 @@
         "ref": "holochain-0.2",
         "repo": "scaffolding",
         "type": "github"
+      }
+    },
+    "versions_0_1": {
+      "inputs": {
+        "holochain": "holochain",
+        "lair": "lair",
+        "launcher": "launcher",
+        "scaffolding": "scaffolding"
+      },
+      "locked": {
+        "lastModified": 1,
+        "narHash": "sha256-LeDONDrsLwNRhoJVy/bHAR0nGgeGnc3OTGTvxeR3e5I=",
+        "path": "./versions/0_1",
+        "type": "path"
+      },
+      "original": {
+        "path": "./versions/0_1",
+        "type": "path"
+      }
+    },
+    "versions_0_2": {
+      "inputs": {
+        "holochain": "holochain_2",
+        "lair": "lair_2",
+        "launcher": "launcher_2",
+        "scaffolding": "scaffolding_2"
+      },
+      "locked": {
+        "lastModified": 1,
+        "narHash": "sha256-GQhcAFcGyV2r6r8JlAHIKCfqtBAyEOJHPSWrIkiH20o=",
+        "path": "./versions/0_2",
+        "type": "path"
+      },
+      "original": {
+        "path": "./versions/0_2",
+        "type": "path"
       }
     }
   },
