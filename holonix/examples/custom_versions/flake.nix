@@ -1,11 +1,7 @@
 {
   description = "Template for Holochain app development with custom versions";
 
-  inputs = {
-    nixpkgs.follows = "holochain-flake/nixpkgs";
-
-    holochain-flake.url = "github:holochain/holochain/versions-0.2";
-  };
+  inputs.holonix.url = "github:holochain/holochain?dir=holonix/versions/0_2";
 
   outputs = inputs @ { ... }:
     inputs.holochain-flake.inputs.flake-parts.lib.mkFlake { inherit inputs; }
