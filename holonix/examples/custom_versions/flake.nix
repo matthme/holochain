@@ -4,18 +4,11 @@
   inputs = {
     nixpkgs.follows = "holochain-flake/nixpkgs";
 
-    holochain-flake = {
-      url = "github:holochain/holochain";
-      inputs.versions.url = "github:holochain/holochain/?dir=versions/0_2";
-      # inputs.holochain.url = "github:holochain/holochain/holochain-0.1.3";
-    };
+    holochain-flake.url = "github:holochain/holochain/versions-0.2";
   };
 
   outputs = inputs @ { ... }:
-    inputs.holochain-flake.inputs.flake-parts.lib.mkFlake
-      {
-        inherit inputs;
-      }
+    inputs.holochain-flake.inputs.flake-parts.lib.mkFlake { inherit inputs; }
       {
         systems = builtins.attrNames inputs.holochain-flake.devShells;
         perSystem =
@@ -30,6 +23,10 @@
               packages = with pkgs; [
                 # more packages go here
               ];
+            };
+
+            packages = {
+              inherit (inputs'.holochain-flake.packages) lair-keystore;
             };
           };
       };

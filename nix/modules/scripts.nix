@@ -35,16 +35,36 @@
         set -xeuo pipefail
         trap "cd $PWD" EXIT
 
-        cd ''${1}
-        nix flake update
-        cd ../../
+        export VERSIONS_DIR="./versions/''${1}"
 
-        nix flake lock --update-input versions --override-input versions "path:''${1}"
+        (
+          cd "$VERSIONS_DIR"
+          nix flake update --tarball-ttl 0
+        )
 
-        if [[ $(${pkgs.git}/bin/git diff -- flake.lock ''${1}/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
-          echo got no actual source changes, reverting modifications..;
-          ${pkgs.git}/bin/git checkout flake.lock ''${1}/flake.lock
+        if [[ $(${pkgs.git}/bin/git diff -- "$VERSIONS_DIR"/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
+          echo got no actual source changes, reverting modifications..
+          ${pkgs.git}/bin/git checkout $VERSIONS_DIR/flake.lock
+          exit 0
         fi
+
+        git commit $VERSIONS_DIR -m "chore: update $VERSIONS_DIR"
+        git push
+
+        echo waiting a few seconds to update
+        sleep 5
+
+        nix flake lock --tarball-ttl 0 --update-input versions_''${1}
+        nix flake lock --tarball-ttl 0 --update-input versions
+
+        if [[ $(${pkgs.git}/bin/git diff -- flake.lock $VERSIONS_DIR/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
+          echo got no actual source changes, reverting modifications..
+          ${pkgs.git}/bin/git checkout flake.lock
+          exit 0
+        fi
+
+        git commit flake.lock -m "chore: update flake.lock after updating $VERSIONS_DIR"
+        git push
       '';
     };
   };
