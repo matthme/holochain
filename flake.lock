@@ -206,16 +206,16 @@
     "lair": {
       "flake": false,
       "locked": {
-        "lastModified": 1670953460,
-        "narHash": "sha256-cqOr7iWzsNeomYQiiFggzG5Dr4X0ysnTkjtA8iwDLAQ=",
+        "lastModified": 1682356264,
+        "narHash": "sha256-5ZYJ1gyyL3hLR8hCjcN5yremg8cSV6w1iKCOrpJvCmc=",
         "owner": "holochain",
         "repo": "lair",
-        "rev": "cbfbefefe43073904a914c8181a450209a74167b",
+        "rev": "43be404da0fd9d57bf4429c44def405bd6490f61",
         "type": "github"
       },
       "original": {
         "owner": "holochain",
-        "ref": "lair_keystore-v0.2.3",
+        "ref": "lair_keystore-v0.2.4",
         "repo": "lair",
         "type": "github"
       }
@@ -507,8 +507,8 @@
         "scaffolding": "scaffolding"
       },
       "locked": {
-        "lastModified": 1682672472,
-        "narHash": "sha256-O/5qWg7kb+LhXm9Sh/sILwzCfuA6QlqLEXrj+dK1nA4=",
+        "lastModified": 1682672613,
+        "narHash": "sha256-GQhcAFcGyV2r6r8JlAHIKCfqtBAyEOJHPSWrIkiH20o=",
         "path": "./versions/0_2",
         "type": "path"
       },
