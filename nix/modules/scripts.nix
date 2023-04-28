@@ -48,13 +48,6 @@
           exit 0
         fi
 
-        git commit $VERSIONS_DIR -m "chore: update $VERSIONS_DIR"
-        git push
-
-        echo waiting a few seconds to update
-        sleep 5
-
-        nix flake lock --tarball-ttl 0 --update-input versions_''${1}
         nix flake lock --tarball-ttl 0 --update-input versions
 
         if [[ $(${pkgs.git}/bin/git diff -- flake.lock $VERSIONS_DIR/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
@@ -63,8 +56,7 @@
           exit 0
         fi
 
-        git commit flake.lock -m "chore: update flake.lock after updating $VERSIONS_DIR"
-        git push
+        git commit flake.lock $VERSIONS_DIR/flake.lock -m "chore(flakes): update $VERSIONS_DIR"
       '';
     };
   };

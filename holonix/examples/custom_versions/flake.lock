@@ -160,16 +160,16 @@
     "holochain": {
       "flake": false,
       "locked": {
-        "lastModified": 1682615969,
-        "narHash": "sha256-jnlWB6FHITXa6JzaBzHcyaAQimWDVOGySjDayHDjvJs=",
+        "lastModified": 1682469456,
+        "narHash": "sha256-p7TPcv10dhAOwE6hjBgRPqUItyKeiIQHoqAbGFAjkyE=",
         "owner": "holochain",
         "repo": "holochain",
-        "rev": "efe64a7f5dfbddc257945bf368db81c7b68de1bd",
+        "rev": "367914e54bafcdccff002e453c68795ea273c350",
         "type": "github"
       },
       "original": {
         "owner": "holochain",
-        "ref": "holochain-0.2.0",
+        "ref": "main-0.2",
         "repo": "holochain",
         "type": "github"
       }
@@ -193,16 +193,18 @@
         "scaffolding": "scaffolding_2"
       },
       "locked": {
-        "lastModified": 1682678418,
-        "narHash": "sha256-Vy5dReQNRCd4y+mm3xsmz9frulHxyF+6aNh1LTow5w4=",
+        "dir": "versions/0_2",
+        "lastModified": 1682683145,
+        "narHash": "sha256-sGDXrdfjvIe/BjK8EeEcuNYI4kjW1FHbv+SQz9z7Mmc=",
         "owner": "holochain",
         "repo": "holochain",
-        "rev": "b7fea322b0b89ed9708339058b49015d4923ce41",
+        "rev": "3aa69f646e4bdcc1408a14fff8db934e87d48bf7",
         "type": "github"
       },
       "original": {
+        "dir": "versions/0_2",
         "owner": "holochain",
-        "ref": "versions-0.2",
+        "ref": "pr_versions_0_2_experiment",
         "repo": "holochain",
         "type": "github"
       }
@@ -288,16 +290,16 @@
     "lair_2": {
       "flake": false,
       "locked": {
-        "lastModified": 1670953460,
-        "narHash": "sha256-cqOr7iWzsNeomYQiiFggzG5Dr4X0ysnTkjtA8iwDLAQ=",
+        "lastModified": 1682356264,
+        "narHash": "sha256-5ZYJ1gyyL3hLR8hCjcN5yremg8cSV6w1iKCOrpJvCmc=",
         "owner": "holochain",
         "repo": "lair",
-        "rev": "cbfbefefe43073904a914c8181a450209a74167b",
+        "rev": "43be404da0fd9d57bf4429c44def405bd6490f61",
         "type": "github"
       },
       "original": {
         "owner": "holochain",
-        "ref": "lair_keystore-v0.2.3",
+        "ref": "lair_keystore-v0.2.4",
         "repo": "lair",
         "type": "github"
       }
@@ -402,7 +404,11 @@
     },
     "root": {
       "inputs": {
-        "holochain-flake": "holochain-flake"
+        "holochain-flake": "holochain-flake",
+        "nixpkgs": [
+          "holochain-flake",
+          "nixpkgs"
+        ]
       }
     },
     "rust-overlay": {
