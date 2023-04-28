@@ -6,7 +6,7 @@
         (
           builtins.map
             (package: ''
-              echo ${package.pname} \($(${package}/bin/${package.pname} -V)\): ${package.src.rev or "na"}'')
+              echo ${package.pname or package.name} \($(${package}/bin/${package.pname or package.name} -V)\): ${package.src.rev or "na"}'')
             holonixPackages
         );
       hn-introspect =
