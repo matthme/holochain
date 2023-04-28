@@ -64,6 +64,52 @@
 
         git commit -m "chore(flakes): update $VERSIONS_DIR"
       '';
+
+      scripts-release-automation-prepare = pkgs.writeShellScriptBin "scripts-release-automation-prepare" ''
+        set -xeuo pipefail
+
+        ${self'.packages.release-automation}/bin/release-automation \
+          --workspace-path=''${1} \
+          --log-level=debug \
+          --match-filter="^(holochain|holochain_cli|kitsune_p2p_proxy)$" \
+          release \
+            --no-verify \
+            --force-tag-creation \
+            --force-branch-creation \
+            --additional-manifests="crates/test_utils/wasm/wasm_workspace/Cargo.toml" \
+            --allowed-semver-increment-modes="!pre_minor beta-dev" \
+            --steps=CreateReleaseBranch,BumpReleaseVersions
+
+        ${self'.packages.release-automation}/bin/release-automation \
+            --workspace-path=''${1} \
+            --log-level=debug \
+            release \
+              --dry-run \
+              --no-verify \
+              --steps=PublishToCratesIo
+      '';
+
+      scripts-ci-generate-readmes = pkgs.writeShellScriptBin "scripts-ci-generate-readmes" ''
+        crates_to_document=("hdi" "hdk" "holochain_keystore" "holochain_state")
+
+        for crate in "''${crates_to_document[@]}"; do
+            echo 'generating README for crate' "$crate"
+            ${self'.packages.cargo-rdme} -w $crate --intralinks-strip-links --force
+        done
+
+        # have any READMEs been updated?
+        git diff --exit-code --quiet
+        readmes_updated=$?
+        if [[ "$readmes_updated" == 1 ]]; then
+            echo 'READMEs have been updated, committing changes'
+            git config --local user.name release-ci
+            git config --local user.email ci@holo.host
+            git commit -am "docs(crate-level): generate readmes from doc comments"
+            git config --local --unset user.name
+            git config --local --unset user.email
+        fi
+      '';
     };
+
   };
 }

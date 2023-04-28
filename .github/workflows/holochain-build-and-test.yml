@@ -10,7 +10,7 @@ on:
         default: "."
 
 jobs:
-  "test":
+  test:
     strategy:
       fail-fast: false
       matrix:
@@ -38,10 +38,19 @@ jobs:
           - cmd:
               pkgs:
                 - build-holochain-build-crates-standalone
-                - build-release-automation-tests
-                - build-release-automation-tests-repo
                 - build-holochain-tests-static-all
+
+                - build-release-automation-tests
+                - build-release-automation-detect-missing-release-headings-repo
               extra_arg: "--override-input versions 'path:./versions/0_2' --override-input holochain ${{ inputs.repo_path }}"
+            platform:
+              system: x86_64-linux
+
+          # FIXME: this can be skipped during a release run because it duplicates the release-prepare job
+          - cmd:
+              pkgs:
+                - build-release-automation-tests-repo
+              extra_arg: "--override-input dummy 'path:.git'"
             platform:
               system: x86_64-linux
 
@@ -72,10 +81,3 @@ jobs:
           nix build -L --show-trace \
             ${{ matrix.cmd.extra_arg }} \
             .#packages.${system}.${{ join(matrix.cmd.pkgs, ' .#packages.${system}.')}}
-
-          # TODO: remove this once we've implemented all tests and know that we don't need it
-          # if there's something to run we generate separate commands
-          # if [[ ${{ matrix.cmd.verb }} == "run" ]]; then
-          #   export basecmd="nix run -L --show-trace .#packages.${system}."
-          #   ${basecmd}${{ join(matrix.cmd.pkgs, '; ${basecmd}') }}
-          # fi

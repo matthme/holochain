@@ -61,7 +61,7 @@ on:
         default: "false"
         type: string
 
-  pull_request: {}
+  # pull_request: {}
 
 concurrency:
   group: release-${{ github.ref_name }}-${{ github.event_name }}

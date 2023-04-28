@@ -126,8 +126,6 @@
           {
             __noChroot = pkgs.stdenv.isLinux;
             nativeBuildInputs = self'.packages.holochain.nativeBuildInputs ++ [
-              package
-
               pkgs.coreutils
               pkgs.gitFull
             ];
@@ -140,8 +138,40 @@
           export HOME="$(mktemp -d)"
           export TEST_WORKSPACE="''${HOME:?}/src"
 
-          cp -r --no-preserve=mode,ownership ${flake.config.srcCleanedRepo} ''${TEST_WORKSPACE:?}
-          cp --no-preserve=mode,ownership ${self}/CHANGELOG.md ''${TEST_WORKSPACE:?}/CHANGELOG.md
+          git config --global user.email "ci@holochain.org"
+          git config --global user.name "CI"
+
+          git clone --single-branch ${inputs.dummy} ''${TEST_WORKSPACE:?}
+          cd ''${TEST_WORKSPACE:?}
+          git status
+
+          ${self'.packages.scripts-release-automation-prepare}/bin/scripts-release-automation-prepare ''${TEST_WORKSPACE:?}
+
+          set +e
+          git clean -ffdx
+          mv ''${TEST_WORKSPACE:?} $out
+          echo use "nix-store --realise $out" to retrieve the result.
+        '';
+
+        build-release-automation-detect-missing-release-headings-repo = pkgs.runCommand
+          "release-automation-detect-missing-release-headings-repo"
+          {
+            nativeBuildInputs = self'.packages.holochain.nativeBuildInputs ++ [
+              package
+
+              pkgs.coreutils
+              pkgs.gitFull
+            ];
+            buildInputs = self'.packages.holochain.buildInputs ++ [
+            ];
+          } ''
+
+          set -euo pipefail
+
+          export HOME="$(mktemp -d)"
+          export TEST_WORKSPACE="''${HOME:?}/src"
+
+          cp -r --no-preserve=mode,ownership ${flake.config.srcCleanedRepoWithChangelogs} ''${TEST_WORKSPACE:?}
           cd ''${TEST_WORKSPACE:?}
 
           git init
@@ -152,28 +182,11 @@
           git commit -am "main"
 
           release-automation \
-            --workspace-path=''${TEST_WORKSPACE:?} \
-            --log-level=debug \
-            --match-filter="^(holochain|holochain_cli|kitsune_p2p_proxy)$" \
-            release \
-              --no-verify \
-              --force-tag-creation \
-              --force-branch-creation \
-              --additional-manifests="crates/test_utils/wasm/wasm_workspace/Cargo.toml" \
-              --disallowed-version-reqs=">=0.4" \
-              --steps=CreateReleaseBranch,BumpReleaseVersions
-
-          release-automation \
-              --workspace-path=''${TEST_WORKSPACE:?} \
+              --workspace-path=$PWD \
               --log-level=debug \
-              release \
-                --dry-run \
-                --no-verify \
-                --steps=PublishToCratesIo
+              crate detect-missing-releaseheadings
 
-
-          rm -rf target
-          mv ''${TEST_WORKSPACE:?} $out
+          touch $out
         '';
       };
     };
