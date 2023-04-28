@@ -507,10 +507,13 @@
         "scaffolding": "scaffolding"
       },
       "locked": {
-        "lastModified": 1682672991,
-        "narHash": "sha256-O/5qWg7kb+LhXm9Sh/sILwzCfuA6QlqLEXrj+dK1nA4=",
-        "path": "./versions/0_2",
-        "type": "path"
+        "dir": "versions/0_2",
+        "lastModified": 1682673829,
+        "narHash": "sha256-b9RYBoInExa8QH0hDA9syzNHJPC0RzsA3CuBFoNQVUw=",
+        "owner": "holochain",
+        "repo": "holochain",
+        "rev": "1215983aa873be42299367271578a590191ad209",
+        "type": "github"
       },
       "original": {
         "dir": "versions/0_2",
