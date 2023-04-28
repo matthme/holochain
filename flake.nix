@@ -8,6 +8,7 @@
       holochain-flake.inputs.scaffolding.url = "github:holochain/scaffolding/holochain-0.2";
 
       nixpkgs.follows = "holochain-flake/nixpkgs";
+      flake-parts.follows = "holochain-flake/flake-parts";
     };
 
   outputs = inputs: inputs.holochain-flake.outputs;

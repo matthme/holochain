@@ -356,6 +356,10 @@
     },
     "root": {
       "inputs": {
+        "flake-parts": [
+          "holochain-flake",
+          "flake-parts"
+        ],
         "holochain-flake": "holochain-flake",
         "nixpkgs": [
           "holochain-flake",
