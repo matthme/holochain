@@ -21,10 +21,7 @@
   perSystem = { config, self', inputs', system, pkgs, ... }:
     let
 
-      rustToolchain = config.rust.mkRust {
-        track = "stable";
-        version = "latest";
-      };
+      rustToolchain = config.rustHelper.mkRust { };
       craneLib = inputs.crane.lib.${system}.overrideToolchain rustToolchain;
 
       commonArgs = {

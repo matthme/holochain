@@ -4,10 +4,7 @@
   perSystem = { config, self', inputs', system, pkgs, ... }:
     let
 
-      rustToolchain = config.rust.mkRust {
-        track = "stable";
-        version = "1.68.1";
-      };
+      rustToolchain = config.rustHelper.mkRust { version = "1.66.1"; };
       craneLib = inputs.crane.lib.${system}.overrideToolchain rustToolchain;
 
       commonArgs = {
@@ -27,15 +24,14 @@
             sqlite
           ])
           ++ (lib.optionals pkgs.stdenv.isDarwin
-            (with pkgs.darwin.apple_sdk.frameworks; [
+            (with pkgs.darwin.apple_sdk_11_0.frameworks; [
               AppKit
+              Carbon
               CoreFoundation
               CoreServices
               Security
             ])
-          )
-          # ++ self'.packages.holochain.buildInputs
-        ;
+          );
 
         nativeBuildInputs =
           (with pkgs; [
@@ -47,9 +43,7 @@
           ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs; [
             xcbuild
             libiconv
-          ])
-          # ++ self'.packages.holochain.nativeBuildInputs
-        ;
+          ]);
 
         doCheck = false;
       };
@@ -67,10 +61,32 @@
         '';
       });
 
+      rustPkgs = config.rustHelper.mkRustPkgs {
+        track = "stable";
+        version = "1.68.1";
+      };
+
+      cargoNix = config.rustHelper.mkCargoNix {
+        name = "hc-scaffold-generated-crate2nix";
+        src = inputs.scaffolding;
+        pkgs = rustPkgs;
+      };
+
     in
     {
       packages = {
         hc-scaffold = package;
+
+        hc-scaffold-crate2nix =
+          config.rustHelper.mkNoIfdPackage
+            "hc-scaffold"
+            (cargoNix.workspaceMembers.holochain_scaffolding_cli.build.overrideAttrs
+              (attrs: {
+                preFixup = ''
+                  wrapProgram $out/bin/hc-scaffold \
+                    --prefix PATH : ${rustPkgs.cargo}/bin
+                '';
+              }));
       };
     };
 }

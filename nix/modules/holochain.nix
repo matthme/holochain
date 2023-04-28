@@ -3,7 +3,7 @@
 { self, inputs, lib, ... }@flake: {
   perSystem = { config, self', inputs', system, pkgs, ... }:
     let
-      rustToolchain = config.rust.mkRust {
+      rustToolchain = config.rustHelper.mkRust {
         track = "stable";
         version = "1.66.1";
       };
@@ -29,7 +29,7 @@
 
         buildInputs = (with pkgs; [ openssl opensslStatic sqlcipher ])
           ++ (lib.optionals pkgs.stdenv.isDarwin
-          (with pkgs.darwin.apple_sdk.frameworks; [
+          (with pkgs.darwin.apple_sdk_11_0.frameworks; [
             AppKit
             CoreFoundation
             CoreServices

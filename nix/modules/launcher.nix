@@ -4,10 +4,7 @@
   perSystem = { config, self', inputs', system, pkgs, ... }:
     let
 
-      rustToolchain = config.rust.mkRust {
-        track = "stable";
-        version = "1.68.1";
-      };
+      rustToolchain = config.rustHelper.mkRust { version = "1.66.1"; };
       craneLib = inputs.crane.lib.${system}.overrideToolchain rustToolchain;
 
       commonArgs = {
@@ -33,8 +30,9 @@
               gdk-pixbuf
               gtk3
             ]))
-          ++ (lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
+          ++ (lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk_11_0.frameworks; [
             AppKit
+            Carbon
             CoreFoundation
             CoreServices
             Security
@@ -89,11 +87,28 @@
         '';
       });
 
+      rustPkgs = config.rustHelper.mkRustPkgs {
+        track = "stable";
+        version = "1.68.1";
+      };
+
+
+      cargoNix = config.rustHelper.mkCargoNix {
+        name = "hc-launch-generated-crate2nix";
+        src = inputs.launcher;
+        pkgs = rustPkgs;
+      };
+
     in
     {
       packages = {
         hc-launch = package;
-        launcherDeps = deps;
+
+        hc-launch-crate2nix =
+          config.rustHelper.mkNoIfdPackage
+            "hc-launch"
+            cargoNix.workspaceMembers.holochain_cli_launch.build
+        ;
       };
     };
 }
