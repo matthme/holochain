@@ -782,11 +782,11 @@
       "locked": {
         "lastModified": 1,
         "narHash": "sha256-ACIE6AVAEH/GuRwOLsbhT4UMjGv/EkeqWgsLYyYKLj0=",
-        "path": "./holonix/versions/0_2",
+        "path": "./versions/0_2",
         "type": "path"
       },
       "original": {
-        "path": "./holonix/versions/0_2",
+        "path": "./versions/0_2",
         "type": "path"
       }
     },
