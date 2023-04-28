@@ -60,7 +60,7 @@
         cargoArtifacts = holochainDepsRelease;
         src = flake.config.srcCleanedHolochain;
         doCheck = false;
-        passthru.src.rev = (inputs.holochain.rev or "n/a");
+        passthru.src.rev = (inputs.holochain.rev or "unknown");
       });
 
       holochainNextestDeps = craneLib.buildDepsOnly (commonArgs // {
