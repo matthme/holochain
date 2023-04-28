@@ -35,16 +35,34 @@
         set -xeuo pipefail
         trap "cd $PWD" EXIT
 
-        cd ''${1}
-        nix flake update
-        cd ../../
+        export VERSIONS_DIR="./versions/''${1}"
+        export DEFAULT_VERSIONS_DIR="$(nix flake metadata --no-write-lock-file --json | jq --raw-output '.locks.nodes.versions.locked.path')"
 
-        nix flake lock --update-input versions --override-input versions "path:''${1}"
+        (
+          cd "$VERSIONS_DIR"
+          nix flake update --tarball-ttl 0
+        )
 
-        if [[ $(${pkgs.git}/bin/git diff -- flake.lock ''${1}/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
-          echo got no actual source changes, reverting modifications..;
-          ${pkgs.git}/bin/git checkout flake.lock ''${1}/flake.lock
+        if [[ $(${pkgs.git}/bin/git diff -- "$VERSIONS_DIR"/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
+          echo got no actual source changes, reverting modifications..
+          ${pkgs.git}/bin/git checkout $VERSIONS_DIR/flake.lock
+          exit 0
+        else
+          git add "$VERSIONS_DIR"/flake.lock
         fi
+
+        if [[ "$VERSIONS_DIR" = "$DEFAULT_VERSIONS_DIR" ]]; then
+          nix flake lock --tarball-ttl 0 --update-input versions --override-input versions "path:$VERSIONS_DIR" 
+        fi
+
+        if [[ $(${pkgs.git}/bin/git diff -- flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
+          echo got no actual source changes in the toplevel flake.lock, reverting modifications..
+          ${pkgs.git}/bin/git checkout flake.lock
+        else
+          git add flake.lock
+        fi
+
+        git commit -m "chore(flakes): update $VERSIONS_DIR"
       '';
     };
   };

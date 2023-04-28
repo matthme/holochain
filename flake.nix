@@ -37,17 +37,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    versions = {
-      url = "path:./versions/0_2";
-    };
-
-    versions_0_1 = {
-      url = "path:./versions/0_1";
-    };
-
-    versions_0_2 = {
-      url = "path:./versions/0_2";
-    };
+    versions.url = "github:holochain/holochain/pr_versions_0_2?dir=versions/0_2";
 
     holochain.follows = "versions/holochain";
     holochain.flake = false;
@@ -67,12 +57,14 @@
       url = "github:orium/cargo-rdme/v1.1.0";
       flake = false;
     };
+
+    flake-parts.url = "flake-parts";
   };
 
   # refer to flake-parts docs https://flake.parts/
-  outputs = inputs @ { self, nixpkgs, flake-parts, ... }:
+  outputs = inputs:
     # all possible parameters for a module: https://flake.parts/module-arguments.html#top-level-module-arguments
-    flake-parts.lib.mkFlake { inherit inputs; } {
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
       systems = [ "aarch64-darwin" "x86_64-linux" "x86_64-darwin" "aarch64-linux" ];
 
       imports =
