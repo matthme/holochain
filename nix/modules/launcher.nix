@@ -3,8 +3,7 @@
 { self, inputs, lib, ... }@flake: {
   perSystem = { config, self', inputs', system, pkgs, ... }:
     let
-
-      rustToolchain = config.rustHelper.mkRust { version = "1.66.1"; };
+      rustToolchain = config.rustHelper.mkRust { };
       craneLib = inputs.crane.lib.${system}.overrideToolchain rustToolchain;
 
       commonArgs = {
@@ -19,7 +18,7 @@
         buildInputs =
           (with pkgs; [
             openssl
-            glib
+            # glib
 
             # TODO: remove this once the features have been rearranged to use vendored sqlite
             sqlite
@@ -30,25 +29,31 @@
               gdk-pixbuf
               gtk3
             ]))
-          ++ (lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk_11_0.frameworks; [
-            AppKit
-            Carbon
-            CoreFoundation
-            CoreServices
-            Security
-            IOKit
-            WebKit
-          ]))
-          # ++ self'.packages.holochain.buildInputs
+          ++ lib.optionals pkgs.stdenv.isDarwin
+            (
+              # because other packages propagate apple_sdk_10_12 frameworks we adhere to that
+              (with pkgs.darwin.apple_sdk_10_12.frameworks; [
+                AppKit
+                Foundation
+                Carbon
+                CoreFoundation
+                CoreServices
+                IOKit
+                Security
+                WebKit
+              ])
+            )
         ;
-
 
         nativeBuildInputs =
           (with pkgs;
           [
             perl
             pkg-config
-            go
+            (go.overrideAttrs
+              (prevAttrs: lib.attrsets.optionalAttrs stdenv.isDarwin {
+                depsTargetTargetPropagated = [ ];
+              }))
           ])
           ++ (lib.optionals pkgs.stdenv.isLinux
             (with pkgs; [
@@ -58,7 +63,6 @@
             xcbuild
             libiconv
           ])
-          # ++ self'.packages.holochain.nativeBuildInputs
         ;
 
         doCheck = false;
@@ -89,9 +93,8 @@
 
       rustPkgs = config.rustHelper.mkRustPkgs {
         track = "stable";
-        version = "1.68.1";
+        version = "1.69.0";
       };
-
 
       cargoNix = config.rustHelper.mkCargoNix {
         name = "hc-launch-generated-crate2nix";
@@ -109,6 +112,28 @@
             "hc-launch"
             cargoNix.workspaceMembers.holochain_cli_launch.build
         ;
+
+        _debug-build-crate2nix =
+          let
+            cargoNix = config.rustHelper.mkCargoNix {
+              name = "debug-build";
+              src = flake.config.srcCleanedDebugBuild;
+              pkgs = rustPkgs;
+            };
+          in
+          cargoNix.allWorkspaceMembers;
+
+        _debug-build =
+          craneLib.buildPackage
+            (lib.attrsets.recursiveUpdate commonArgs {
+              cargoArtifacts = null;
+
+              pname = "debug-build";
+              cargoExtraArgs = "";
+              CARGO_PROFILE = "release";
+              src = flake.config.srcCleanedDebugBuild;
+              doCheck = false;
+            });
       };
     };
 }

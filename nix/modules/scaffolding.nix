@@ -3,8 +3,7 @@
 { self, inputs, lib, ... }@flake: {
   perSystem = { config, self', inputs', system, pkgs, ... }:
     let
-
-      rustToolchain = config.rustHelper.mkRust { version = "1.66.1"; };
+      rustToolchain = config.rustHelper.mkRust { };
       craneLib = inputs.crane.lib.${system}.overrideToolchain rustToolchain;
 
       commonArgs = {
@@ -22,8 +21,8 @@
 
             # TODO: remove sqlite package once https://github.com/holochain/holochain/pull/2248 is released
             sqlite
-          ])
-          ++ (lib.optionals pkgs.stdenv.isDarwin
+          ]) ++ (lib.optionals pkgs.stdenv.isDarwin
+            # (builtins.attrValues (lib.attrsets.filterAttrs (name: value: name != "QuickTime") pkgs.darwin.apple_sdk_11_0.frameworks))
             (with pkgs.darwin.apple_sdk_11_0.frameworks; [
               AppKit
               Carbon
@@ -31,7 +30,8 @@
               CoreServices
               Security
             ])
-          );
+          )
+        ;
 
         nativeBuildInputs =
           (with pkgs; [
@@ -63,7 +63,7 @@
 
       rustPkgs = config.rustHelper.mkRustPkgs {
         track = "stable";
-        version = "1.68.1";
+        version = "1.69.0";
       };
 
       cargoNix = config.rustHelper.mkCargoNix {

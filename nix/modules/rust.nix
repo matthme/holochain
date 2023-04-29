@@ -15,7 +15,7 @@
 
       config.rustHelper = {
         defaultTrack = "stable";
-        defaultVersion = "1.68.1";
+        defaultVersion = "1.69.0";
 
         defaultExtensions = [ "rust-src" ];
 
@@ -28,8 +28,8 @@
         ];
 
         mkRustPkgs =
-          { track
-          , version
+          { track ? config.rustHelper.defaultTrack
+          , version ? config.rustHelper.defaultVersion
           , extensions ? config.rustHelper.defaultExtensions
           , targets ? config.rustHelper.defaultTargets
           }:
@@ -40,16 +40,17 @@
               inputs.rust-overlay.overlays.default
 
               (final: prev: {
-                rustToolchain = (prev.rust-bin."${track}"."${version}".default.override {
-                  inherit extensions targets;
-                });
+                rustToolchain =
+                  (prev.rust-bin."${track}"."${version}".default.override {
+                    inherit extensions targets;
+                  });
 
                 rustc = final.rustToolchain;
                 cargo = final.rustToolchain;
               })
 
-              (final: prev: prev.lib.optionalAttrs prev.stdenv.hostPlatform.isDarwin {
-                buildRustCrate = arg: prev.buildRustCrate ({ dontStrip = true; } // arg);
+              (final: prev: {
+                buildRustCrate = arg: prev.buildRustCrate (arg // { dontStrip = prev.stdenv.isDarwin; });
               })
 
             ];

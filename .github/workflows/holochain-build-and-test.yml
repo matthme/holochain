@@ -81,6 +81,6 @@ jobs:
 
           git checkout -b "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-develop}}"
 
-          nix build -L --show-trace \
+          nix build --no-link -L --show-trace \
             ${{ matrix.cmd.extra_arg }} \
             .#packages.${system}.${{ join(matrix.cmd.pkgs, ' .#packages.${system}.')}}

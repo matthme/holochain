@@ -35,6 +35,14 @@ in
     root = "${self}/crates/release-automation";
   };
 
+  options.srcCleanedDebugBuild = lib.mkOption { type = lib.types.raw; };
+  config.srcCleanedDebugBuild = inputs.nix-filter.lib {
+    include = includeCommon ++ [
+      "src"
+    ];
+    root = "${self}/crates/debug-build";
+  };
+
   options.srcCleanedHolonix = lib.mkOption { type = lib.types.raw; };
   config.srcCleanedHolonix = inputs.nix-filter.lib {
     include = [

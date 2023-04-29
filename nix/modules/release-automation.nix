@@ -1,20 +1,3 @@
-# { self, inputs, lib, ... }@flake: {
-#   perSystem = { config, self', inputs', system, pkgs, ... }: {
-#     packages = {
-#       release-automation =
-#         pkgs.callPackage ../../crates/release-automation/default.nix {
-#           crate2nixSrc = inputs.crate2nix;
-#         };
-
-#       release-automation-regenerate-readme =
-#         pkgs.writeShellScriptBin "release-automation-regenerate-readme" ''
-#           set -x
-#           ${pkgs.cargo-readme}/bin/cargo-readme readme --project-root=crates/release-automation/ --output=README.md;
-#         '';
-#     };
-#   };
-# }
-
 # Definitions can be imported from a separate file like this one
 
 { self, inputs, lib, ... }@flake: {
