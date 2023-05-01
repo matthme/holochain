@@ -88,19 +88,12 @@
         build-release-automation-tests = tests;
 
         # check the state of the repository
-        # TODO: to get the actual .git repo we could be something like this:
-        # using a dummy input like this:
+        # this is using a dummy input like this:
         # ```nix
         #     repo-git.url = "file+file:/dev/null";
         #     repo-git.flake = false;
         # ```
-        # and then when i run the test derivations that rely on that input, i can temporarily lock that input to a local path like this:
-        # ```
-        # tmpgit=$(mktemp -d)
-        # git clone --bare --single-branch . $tmpgit
-        # nix flake lock --update-input repo-git --override-input repo-git "path:$tmpdir"
-        # rm -rf $tmpgit
-        # ```
+        # and then the test derivation is built it relies on that input being the local repo path. see the "holochain-build-and-test.yml" workflow.
         build-release-automation-tests-repo = pkgs.runCommand
           "release-automation-tests-repo"
           {

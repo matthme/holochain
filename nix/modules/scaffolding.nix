@@ -22,8 +22,7 @@
             # TODO: remove sqlite package once https://github.com/holochain/holochain/pull/2248 is released
             sqlite
           ]) ++ (lib.optionals pkgs.stdenv.isDarwin
-            # (builtins.attrValues (lib.attrsets.filterAttrs (name: value: name != "QuickTime") pkgs.darwin.apple_sdk_11_0.frameworks))
-            (with pkgs.darwin.apple_sdk_10_12.frameworks; [
+            (with config.rustHelper.apple_sdk.frameworks; [
               AppKit
               Foundation
               Security
@@ -37,7 +36,7 @@
             perl
             pkg-config
             makeBinaryWrapper
-            self'.packages.goWrapped
+            self'.packages.goWrapper
           ])
           ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs; [
             xcbuild

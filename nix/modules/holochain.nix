@@ -29,7 +29,7 @@
 
         buildInputs = (with pkgs; [ openssl opensslStatic sqlcipher ])
           ++ (lib.optionals pkgs.stdenv.isDarwin
-          (with pkgs.darwin.apple_sdk_11_0.frameworks; [
+          (with config.rustHelper.apple_sdk.frameworks; [
             AppKit
             CoreFoundation
             CoreServices
@@ -37,8 +37,13 @@
             IOKit
           ]));
 
-        nativeBuildInputs = (with pkgs; [ makeWrapper perl pkg-config go ])
-          ++ lib.optionals pkgs.stdenv.isDarwin
+        nativeBuildInputs = (with pkgs; [
+          pkg-config
+          makeWrapper
+          perl
+          self'.packages.goWrapper
+        ])
+        ++ lib.optionals pkgs.stdenv.isDarwin
           (with pkgs; [ xcbuild libiconv ]);
       };
 

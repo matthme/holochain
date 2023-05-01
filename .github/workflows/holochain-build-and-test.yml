@@ -8,11 +8,16 @@ on:
         required: false
         type: string
         default: "."
+      fail_fast:
+        description: "whether all tests will be stopped on first failure occurence or run to completion"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   test:
     strategy:
-      fail-fast: false
+      fail-fast: ${{ inputs.fail_fast }}
       matrix:
         cmd:
           # ensure functionality on multiple platforms

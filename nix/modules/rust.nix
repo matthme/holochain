@@ -25,6 +25,7 @@
           "x86_64-pc-windows-gnu"
           "x86_64-unknown-linux-musl"
           "x86_64-apple-darwin"
+          "aarch64-apple-darwin"
         ];
 
         mkRustPkgs =
@@ -41,12 +42,8 @@
 
               (final: prev: {
                 rustToolchain =
-                  (prev.rust-bin."${track}"."${version}".default.overrideAttrs (prevAttrs: {
+                  (prev.rust-bin."${track}"."${version}".default.override ({
                     inherit extensions targets;
-
-                    # propagatedBuildInputs = [ ];
-                    # depsHostHostPropagated = [ ];
-                    # depsTargetTargetPropagated = [ ];
                   }));
 
                 rustc = final.rustToolchain;
@@ -54,7 +51,9 @@
               })
 
               (final: prev: {
-                buildRustCrate = arg: prev.buildRustCrate (arg // { dontStrip = prev.stdenv.isDarwin; });
+                buildRustCrate = arg: prev.buildRustCrate (arg // {
+                  dontStrip = prev.stdenv.isDarwin;
+                });
               })
 
             ];
@@ -71,6 +70,7 @@
         customBuildRustCrateForPkgs = _: pkgs.buildRustCrate.override {
           defaultCrateOverrides = pkgs.lib.attrsets.recursiveUpdate pkgs.defaultCrateOverrides
             ({
+              # this regular module named `build.rs` confuses crate2nix which tries to build and run it as a build script.
               build-fs-tree = _: {
                 prePatch = ''
                   mv build.rs build/mod.rs
@@ -102,85 +102,7 @@
               };
 
               gobject-sys = _: { buildInputs = with pkgs; [ pkg-config glib ]; };
-
-              # javascriptcore-rs-sys = _: { buildInputs = with pkgs; [ pkg-config glib ]; };
-
-              # webkit2gtk-sys = _: {
-              #   buildInputs =
-              #     (lib.optionals pkgs.stdenv.isLinux [ pkgs.webkitgtk.dev ])
-              #       ++ (lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [ WebKit ]))
-              #   ;
-              # }
-            }
-            // builtins.listToAttrs
-              (builtins.map
-                (name: {
-                  inherit name;
-                  value = _: {
-                    buildInputs = (with pkgs; [
-                      openssl
-                      glib
-                      sqlite
-                    ])
-                    ++ (lib.optionals pkgs.stdenv.isLinux (with pkgs; [
-                      webkitgtk.dev
-                      gdk-pixbuf
-                      gtk3
-                    ]))
-                    ++ (lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
-                      AppKit
-                      CoreFoundation
-                      CoreServices
-                      Security
-                      IOKit
-                      WebKit
-                    ]))
-                    ;
-
-                    nativeBuildInputs = (with pkgs; [
-                      perl
-                      pkg-config
-                      go
-                    ])
-                    ++ (lib.optionals pkgs.stdenv.isLinux (with pkgs; [
-                      wrapGAppsHook
-                    ]))
-                    ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs; [
-                      xcbuild
-                      libiconv
-                    ])
-                    ;
-                  };
-                })
-                # launcher deps
-                [
-                  "javascriptcore-rs-sys"
-                  "webkit2gtk-sys"
-                  "atk-sys"
-                  "gio-sys"
-                  "pango-sys"
-                  "gdk-pixbuf-sys"
-                  "soup2-sys"
-                  "cairo-rs"
-                  "gdk-sys"
-                  "gdkx11-sys"
-                  "gtk-sys"
-                ]
-              )
-            );
-
-          # glib
-          # atk
-          # gio
-          # pango
-          # gdk-pixbuf
-          # soup2
-          # gdk
-          # gtk
-          # rfd
-          # tao
-          # wry
-
+            });
         };
 
 
@@ -204,6 +126,15 @@
           type = "derivation";
           orig = pkg;
         };
+
+        apple_sdk =
+          lib.attrsets.optionalAttrs pkgs.stdenv.isDarwin
+            (
+              # aarch64 only uses 11.0 and x86_64 mixes them
+              if system == "x86_64-darwin"
+              then pkgs.darwin.apple_sdk_10_12
+              else pkgs.darwin.apple_sdk_11_0
+            );
       };
     };
 }
