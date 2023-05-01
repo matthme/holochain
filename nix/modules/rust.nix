@@ -41,9 +41,13 @@
 
               (final: prev: {
                 rustToolchain =
-                  (prev.rust-bin."${track}"."${version}".default.override {
+                  (prev.rust-bin."${track}"."${version}".default.overrideAttrs (prevAttrs: {
                     inherit extensions targets;
-                  });
+
+                    # propagatedBuildInputs = [ ];
+                    # depsHostHostPropagated = [ ];
+                    # depsTargetTargetPropagated = [ ];
+                  }));
 
                 rustc = final.rustToolchain;
                 cargo = final.rustToolchain;

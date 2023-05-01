@@ -23,12 +23,11 @@
             sqlite
           ]) ++ (lib.optionals pkgs.stdenv.isDarwin
             # (builtins.attrValues (lib.attrsets.filterAttrs (name: value: name != "QuickTime") pkgs.darwin.apple_sdk_11_0.frameworks))
-            (with pkgs.darwin.apple_sdk_11_0.frameworks; [
+            (with pkgs.darwin.apple_sdk_10_12.frameworks; [
               AppKit
-              Carbon
-              CoreFoundation
-              CoreServices
+              Foundation
               Security
+              WebKit
             ])
           )
         ;
@@ -38,7 +37,7 @@
             perl
             pkg-config
             makeBinaryWrapper
-            go
+            self'.packages.goWrapped
           ])
           ++ lib.optionals pkgs.stdenv.isDarwin (with pkgs; [
             xcbuild
