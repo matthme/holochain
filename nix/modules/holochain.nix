@@ -29,11 +29,8 @@
 
         buildInputs = (with pkgs; [ openssl opensslStatic sqlcipher ])
           ++ (lib.optionals pkgs.stdenv.isDarwin
-          (with config.rustHelper.apple_sdk.frameworks; [
+          (with pkgs.darwin.apple_sdk_11_0.frameworks; [
             AppKit
-            Foundation
-            CoreFoundation
-            CoreServices
             Security
             IOKit
           ]));
