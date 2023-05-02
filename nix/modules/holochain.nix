@@ -62,11 +62,6 @@
 
       # derivation with the main crates
       holochain = craneLib.buildPackage (commonArgs // {
-        buildInputs = commonArgs.buildInputs
-          ++ (lib.optionals pkgs.stdenv.isDarwin
-          (with config.rustHelper.apple_sdk.frameworks; [
-          ]));
-
         CARGO_PROFILE = "release";
         cargoArtifacts = holochainDepsRelease;
         src = flake.config.srcCleanedHolochain;
