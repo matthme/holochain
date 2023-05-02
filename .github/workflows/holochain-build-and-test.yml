@@ -44,9 +44,7 @@ jobs:
               pkgs:
                 - build-holochain-build-crates-standalone
                 - build-holochain-tests-static-all
-
-                - build-release-automation-tests
-                - build-release-automation-detect-missing-release-headings-repo
+                - build-release-automation-tests-unit
               extra_arg: "--override-input versions 'path:./versions/0_2' --override-input holochain ${{ inputs.repo_path }}"
             platform:
               system: x86_64-linux

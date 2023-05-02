@@ -68,6 +68,11 @@
       scripts-release-automation-prepare = pkgs.writeShellScriptBin "scripts-release-automation-prepare" ''
         set -xeuo pipefail
 
+        ${self'.packages.release-automation}/binrelease-automation \
+            --workspace-path=$PWD \
+            --log-level=debug \
+            crate detect-missing-releaseheadings
+
         ${self'.packages.release-automation}/bin/release-automation \
           --workspace-path=''${1} \
           --log-level=debug \

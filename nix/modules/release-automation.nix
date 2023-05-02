@@ -85,7 +85,7 @@
       packages = {
         release-automation = package;
 
-        build-release-automation-tests = tests;
+        build-release-automation-tests-unit = tests;
 
         # check the state of the repository
         # this is using a dummy input like this:
@@ -124,42 +124,6 @@
           git clean -ffdx
           mv ''${TEST_WORKSPACE:?} $out
           echo use "nix-store --realise $out" to retrieve the result.
-        '';
-
-        build-release-automation-detect-missing-release-headings-repo = pkgs.runCommand
-          "release-automation-detect-missing-release-headings-repo"
-          {
-            nativeBuildInputs = self'.packages.holochain.nativeBuildInputs ++ [
-              package
-
-              pkgs.coreutils
-              pkgs.gitFull
-            ];
-            buildInputs = self'.packages.holochain.buildInputs ++ [
-            ];
-          } ''
-
-          set -euo pipefail
-
-          export HOME="$(mktemp -d)"
-          export TEST_WORKSPACE="''${HOME:?}/src"
-
-          cp -r --no-preserve=mode,ownership ${flake.config.srcCleanedRepoWithChangelogs} ''${TEST_WORKSPACE:?}
-          cd ''${TEST_WORKSPACE:?}
-
-          git init
-          git switch -c main
-          git add .
-          git config --global user.email "you@example.com"
-          git config --global user.name "Your Name"
-          git commit -am "main"
-
-          release-automation \
-              --workspace-path=$PWD \
-              --log-level=debug \
-              crate detect-missing-releaseheadings
-
-          touch $out
         '';
       };
     };
