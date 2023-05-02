@@ -94,37 +94,41 @@
         #     repo-git.flake = false;
         # ```
         # and then the test derivation is built it relies on that input being the local repo path. see the "holochain-build-and-test.yml" workflow.
-        build-release-automation-tests-repo = pkgs.runCommand
-          "release-automation-tests-repo"
-          {
-            __noChroot = pkgs.stdenv.isLinux;
-            nativeBuildInputs = self'.packages.holochain.nativeBuildInputs ++ [
-              pkgs.coreutils
-              pkgs.gitFull
-            ];
-            buildInputs = self'.packages.holochain.buildInputs ++ [
-              pkgs.cacert
-            ];
-          } ''
-          set -euo pipefail
+        build-release-automation-tests-repo =
+          let
+            script = self'.packages.scripts-release-automation-check-and-bump;
+          in
+          pkgs.runCommand
+            "release-automation-tests-repo"
+            {
+              __noChroot = pkgs.stdenv.isLinux;
+              nativeBuildInputs = self'.packages.holochain.nativeBuildInputs ++ [
+                pkgs.coreutils
+                pkgs.gitFull
+              ];
+              buildInputs = self'.packages.holochain.buildInputs ++ [
+                pkgs.cacert
+              ];
+            } ''
+            set -euo pipefail
 
-          export HOME="$(mktemp -d)"
-          export TEST_WORKSPACE="''${HOME:?}/src"
+            export HOME="$(mktemp -d)"
+            export TEST_WORKSPACE="''${HOME:?}/src"
 
-          git config --global user.email "devcore@holochain.org"
-          git config --global user.name "Holochain Core Dev Team";
+            git config --global user.email "devcore@holochain.org"
+            git config --global user.name "Holochain Core Dev Team";
 
-          git clone --single-branch ${inputs.dummy} ''${TEST_WORKSPACE:?}
-          cd ''${TEST_WORKSPACE:?}
-          git status
+            git clone --single-branch ${inputs.dummy} ''${TEST_WORKSPACE:?}
+            cd ''${TEST_WORKSPACE:?}
+            git status
 
-          ${self'.packages.scripts-release-automation-check-and-bump}/bin/scripts-release-automation-prepare ''${TEST_WORKSPACE:?}
+            ${script}/bin/${script.name} ''${TEST_WORKSPACE:?}
 
-          set +e
-          git clean -ffdx
-          mv ''${TEST_WORKSPACE:?} $out
-          echo use "nix-store --realise $out" to retrieve the result.
-        '';
+            set +e
+            git clean -ffdx
+            mv ''${TEST_WORKSPACE:?} $out
+            echo use "nix-store --realise $out" to retrieve the result.
+          '';
       };
     };
 }

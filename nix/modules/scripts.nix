@@ -68,7 +68,7 @@
       scripts-release-automation-check-and-bump = pkgs.writeShellScriptBin "scripts-release-automation-check-and-bump" ''
         set -xeuo pipefail
 
-        ${self'.packages.release-automation}/binrelease-automation \
+        ${self'.packages.release-automation}/bin/release-automation \
             --workspace-path=$PWD \
             --log-level=debug \
             crate detect-missing-releaseheadings
