@@ -31,6 +31,7 @@
           ++ (lib.optionals pkgs.stdenv.isDarwin
           (with config.rustHelper.apple_sdk.frameworks; [
             AppKit
+            Foundation
             CoreFoundation
             CoreServices
             Security
@@ -64,7 +65,6 @@
         buildInputs = commonArgs.buildInputs
           ++ (lib.optionals pkgs.stdenv.isDarwin
           (with config.rustHelper.apple_sdk.frameworks; [
-            Foundation
           ]));
 
         CARGO_PROFILE = "release";
