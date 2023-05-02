@@ -111,14 +111,14 @@
           export HOME="$(mktemp -d)"
           export TEST_WORKSPACE="''${HOME:?}/src"
 
-          git config --global user.email "ci@holochain.org"
-          git config --global user.name "CI"
+          git config --global user.email "devcore@holochain.org"
+          git config --global user.name "Holochain Core Dev Team";
 
           git clone --single-branch ${inputs.dummy} ''${TEST_WORKSPACE:?}
           cd ''${TEST_WORKSPACE:?}
           git status
 
-          ${self'.packages.scripts-release-automation-prepare}/bin/scripts-release-automation-prepare ''${TEST_WORKSPACE:?}
+          ${self'.packages.scripts-release-automation-check-and-bump}/bin/scripts-release-automation-prepare ''${TEST_WORKSPACE:?}
 
           set +e
           git clean -ffdx

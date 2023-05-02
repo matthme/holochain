@@ -65,7 +65,7 @@
         git commit -m "chore(flakes): update $VERSIONS_DIR"
       '';
 
-      scripts-release-automation-prepare = pkgs.writeShellScriptBin "scripts-release-automation-prepare" ''
+      scripts-release-automation-check-and-bump = pkgs.writeShellScriptBin "scripts-release-automation-check-and-bump" ''
         set -xeuo pipefail
 
         ${self'.packages.release-automation}/binrelease-automation \
