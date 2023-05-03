@@ -19,9 +19,8 @@ as an exmaple, here is a _flake.nix_ that references a custom branch.
     nixpkgs.follows = "holochain-flake/nixpkgs";
 
     holochain-flake = {
-      url = "github:holochain/holochain";
-      inputs.versions.url = "github:holochain/holochain/?dir=versions/0_1";
-      inputs.holochain.url = "github:holochain/holochain/holochain-0.1.3";
+      url = "github:holochain/holochain/experiment_flake_lock_mangling";
+      inputs.versions.url = "github:holochain/holochain/experiment_flake_lock_mangling?dir=versions/0_1";
     };
   };
 

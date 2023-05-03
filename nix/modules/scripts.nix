@@ -32,21 +32,26 @@
         '';
 
       scripts-repo-flake-update = pkgs.writeShellScriptBin "scripts-repo-flake-update" ''
-        set -xeuo pipefail
-        trap "cd $PWD" EXIT
+        set -xuo pipefail
 
-        cd versions/0_1
-        nix flake update
-        cd ../../
+        (
+          cd versions/0_1
+          nix flake update
+          jq . < flake.lock | grep -v revCount | grep -v lastModified > flake.lock.new
+          mv flake.lock{.new,}
+        )
 
-        nix flake lock --update-input versions --override-input versions "git+file:.?dir=versions/0_1&ref=$(git rev-parse HEAD)"
-
-        if [[ $(${pkgs.git}/bin/git diff -- versions/0_1/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
+        if [[ $(${pkgs.git}/bin/git diff -- versions/0_1/flake.lock | grep -E '^[+-]\s+"' --count) -eq 0 ]]; then
           echo got no actual source changes, reverting modifications..;
-          ${pkgs.git}/bin/git checkout flake.lock versions/0_1/flake.lock
+          ${pkgs.git}/bin/git checkout versions/0_1/flake.lock
+        else
+          ${pkgs.git}/bin/git commit versions/0_1/flake.lock -m "updating versions/0_1 flake"
         fi
 
-        git commit versions/0_1/flake.lock -m "updating versions/0_1 flake"
+
+        nix flake lock --update-input versions --override-input versions "git+file:.?dir=versions/0_1&ref=$(git rev-parse HEAD)"
+        jq . < flake.lock | grep -v revCount | grep -v lastModified > flake.lock.new
+        mv flake.lock{.new,}
 
         # replace the URL of the versions flake with the github URL
         nix eval --impure --json --expr "
@@ -56,15 +61,14 @@
             lock_updated = lib.recursiveUpdate lock { nodes.versions.locked.url = "github:holochain/holochain?dir=versions/0_1"; };
           in lock_updated
         " | ${pkgs.jq}/bin/jq --raw-output . > flake.lock.new
-
         mv flake.lock{.new,}
 
-        if [[ $(${pkgs.git}/bin/git diff -- flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
+        if [[ $(${pkgs.git}/bin/git diff -- flake.lock | grep -E '^[+-]\s+"' --count) -eq 0 ]]; then
           echo got no actual source changes, reverting modifications..;
-          ${pkgs.git}/bin/git checkout flake.lock versions/*/flake.lock
+          ${pkgs.git}/bin/git checkout flake.lock
+        else
+          ${pkgs.git}/bin/git commit flake.lock -m "updating toplevel flake"
         fi
-
-        git commit flake.lock -m "updating toplevel flake"
       '';
     };
   };
