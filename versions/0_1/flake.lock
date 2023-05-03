@@ -27,7 +27,7 @@
       },
       "original": {
         "owner": "holochain",
-        "ref": "lair_keystore-v0.2.4",
+        "ref": "main",
         "repo": "lair",
         "type": "github"
       }
