@@ -139,6 +139,8 @@
 
               # Enables the pre-commit hooks
               ${config.pre-commit.installationScript}
+
+              echo This is a new change.
             '';
           };
 

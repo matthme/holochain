@@ -8,12 +8,15 @@
   description = "Template for Holochain app development with custom versions";
 
   inputs.holochain-flake.url = "github:holochain/holochain/pr_versions_0_2?dir=versions/0_2";
-  # inputs.nixpkgs.follows = "holochain-flake/nixpkgs";
+  inputs.nixpkgs.follows = "holochain-flake/nixpkgs";
+  inputs.flake-parts.follows = "holochain-flake/flake-parts";
 
   outputs = inputs @ { ... }:
-    inputs.holochain-flake.inputs.flake-parts.lib.mkFlake { inherit inputs; }
+    inputs.flake-parts.lib.mkFlake { inherit inputs; }
       {
+        flake.inputs = inputs;
         systems = builtins.attrNames inputs.holochain-flake.devShells;
+
         perSystem =
           { inputs'
           , config
@@ -21,6 +24,7 @@
           , system
           , ...
           }: {
+
             devShells.default = pkgs.mkShell {
               inputsFrom = [ inputs'.holochain-flake.devShells.holonix ];
               packages = with pkgs; [

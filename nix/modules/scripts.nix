@@ -40,7 +40,7 @@
 
         (
           cd "$VERSIONS_DIR"
-          nix flake update --tarball-ttl 0
+          nix flake update --tarball-ttl 0 --override-input holochain-flake "github:holochain/holochain?ref=$(git rev-parse HEAD)"
         )
 
         if [[ $(${pkgs.git}/bin/git diff -- "$VERSIONS_DIR"/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
