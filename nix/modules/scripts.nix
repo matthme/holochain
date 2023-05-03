@@ -39,6 +39,15 @@
           nix flake update
           jq . < flake.lock | grep -v revCount | grep -v lastModified > flake.lock.new
           mv flake.lock{.new,}
+
+          nix eval --impure --json --expr "
+            let
+              lib = (import ${pkgs.path} {}).lib;
+              lock = builtins.fromJSON (builtins.readFile ./flake.lock);
+              lock_updated = lib.recursiveUpdate lock { nodes.lair.original.ref = \"main\"; };
+            in lock_updated
+          " | ${pkgs.jq}/bin/jq --raw-output . > flake.lock.new
+          mv flake.lock{.new,}
         )
 
         if [[ $(${pkgs.git}/bin/git diff -- versions/0_1/flake.lock | grep -E '^[+-]\s+"' --count) -eq 0 ]]; then
@@ -49,7 +58,7 @@
           ${pkgs.git}/bin/git commit versions/0_1/flake.lock -m "updating versions/0_1 flake"
         fi
 
-        nix flake lock --update-input versions --override-input versions "git+file:.?rev=$(git rev-parse HEAD)&dir=versions/0_1&"
+        nix flake lock --update-input versions --override-input versions "git+file:.?rev=$(git rev-parse HEAD)&dir=versions/0_1"
         jq . < flake.lock | grep -v revCount | grep -v lastModified > flake.lock.new
         mv flake.lock{.new,}
 
@@ -58,7 +67,7 @@
           let
             lib = (import ${pkgs.path} {}).lib;
             lock = builtins.fromJSON (builtins.readFile ./flake.lock);
-            lock_updated = lib.recursiveUpdate lock { nodes.versions.locked.url = "github:holochain/holochain?dir=versions/0_1"; };
+            lock_updated = lib.recursiveUpdate lock { nodes.versions.locked.url = \"github:holochain/holochain?dir=versions/0_1\"; };
           in lock_updated
         " | ${pkgs.jq}/bin/jq --raw-output . > flake.lock.new
         mv flake.lock{.new,}
