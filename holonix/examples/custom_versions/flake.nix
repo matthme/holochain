@@ -11,7 +11,7 @@
     holochain-versions.url = "github:holochain/holochain/experiment_flake_lock_mangling?dir=versions/0_1";
 
     holochain-flake.url = "github:holochain/holochain/experiment_flake_lock_mangling";
-    # holochain-flake.inputs.versions.follows = "holochain-versions";
+    holochain-flake.inputs.versions.url = "github:holochain/holochain/experiment_flake_lock_mangling?dir=versions/0_1";
 
     # holochain-flake.inputs.holochain.follows = "holochain-versions/holochain";
     # holochain-flake.inputs.lair.follows = "holochain-versions/lair";
