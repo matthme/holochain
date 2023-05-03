@@ -158,16 +158,16 @@
     "holochain": {
       "flake": false,
       "locked": {
-        "lastModified": 1681507583,
-        "narHash": "sha256-lRnums2gv1oXVwo4gMF2QAnzEu8prwxg1uKjUzNwJV4=",
+        "lastModified": 1682362638,
+        "narHash": "sha256-pL+3zQo6/4ctj/hEI0vihAPpBRiZ+9n7Vxl0fDRZc3g=",
         "owner": "holochain",
         "repo": "holochain",
-        "rev": "ac50baed6b53e9d0552729e69e1e20312e4edc08",
+        "rev": "9242f34515dfaeaf722629f9550d064b7f248121",
         "type": "github"
       },
       "original": {
         "owner": "holochain",
-        "ref": "holochain-0.1.4",
+        "ref": "holochain-0.1.5-beta-rc.0",
         "repo": "holochain",
         "type": "github"
       }
@@ -175,16 +175,16 @@
     "lair": {
       "flake": false,
       "locked": {
-        "lastModified": 1670953460,
-        "narHash": "sha256-cqOr7iWzsNeomYQiiFggzG5Dr4X0ysnTkjtA8iwDLAQ=",
+        "lastModified": 1682356264,
+        "narHash": "sha256-5ZYJ1gyyL3hLR8hCjcN5yremg8cSV6w1iKCOrpJvCmc=",
         "owner": "holochain",
         "repo": "lair",
-        "rev": "cbfbefefe43073904a914c8181a450209a74167b",
+        "rev": "43be404da0fd9d57bf4429c44def405bd6490f61",
         "type": "github"
       },
       "original": {
         "owner": "holochain",
-        "ref": "lair_keystore-v0.2.3",
+        "ref": "lair_keystore-v0.2.4",
         "repo": "lair",
         "type": "github"
       }
@@ -388,11 +388,11 @@
       },
       "locked": {
         "dir": "versions/0_1",
-        "lastModified": 1683121041,
-        "narHash": "sha256-R6jx/IkoagNgnsC17phkEUgL5wEPIcgPbtAWws/KK7Q=",
-        "ref": "8de7bdf0bd9b6adb53f88a91376464ae594136d0",
-        "rev": "8de7bdf0bd9b6adb53f88a91376464ae594136d0",
-        "revCount": 11160,
+        "lastModified": 1683121185,
+        "narHash": "sha256-vsiVF3FFjgIEV+PyHIX/tZg7t6wvIKlj1LAuVl6+QPU=",
+        "ref": "648db6fd0793535c5e430a951e19d6ccf37acc87",
+        "rev": "648db6fd0793535c5e430a951e19d6ccf37acc87",
+        "revCount": 11162,
         "type": "git",
         "url": "github:holochain/holochain?dir=versions/0_1"
       },
