@@ -368,8 +368,9 @@
       },
       "locked": {
         "dir": "versions/0_1",
-        "narHash": "sha256-qPkkStuJ5D/Mb1taler3QQqV9AVZlvTUSrz82AOAAuM=",
-        "rev": "69f7a872568bc9e88aeddf8374c499bded5b0907",
+        "narHash": "sha256-rm2DvBGnKta2xNYr+4i2SKXVxyD5cpxmMpOznCtU1iQ=",
+        "ref": "refs/heads/experiment_flake_lock_mangling",
+        "rev": "4f645dd3a0b9785ac55d60e7e1638c88258169ac",
         "type": "git",
         "url": "github:holochain/holochain?dir=versions/0_1"
       },
