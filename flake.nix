@@ -40,15 +40,18 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    versions.url = "github:holochain/holochain/pr_versions_0_2?dir=versions/0_2";
+    versions.url = "file:///dev/null";
+    versions.flake = false;
 
-    holochain.follows = "versions/holochain";
+    versions_internal.url = "github:holochain/holochain?dir=versions/0_2";
+
+    holochain.follows = "versions_internal/holochain";
     holochain.flake = false;
-    lair.follows = "versions/lair";
+    lair.follows = "versions_internal/lair";
     lair.flake = false;
-    launcher.follows = "versions/launcher";
+    launcher.follows = "versions_internal/launcher";
     launcher.flake = false;
-    scaffolding.follows = "versions/scaffolding";
+    scaffolding.follows = "versions_internal/scaffolding";
     scaffolding.flake = false;
 
     cargo-chef = {
@@ -72,13 +75,12 @@
 
       imports =
         # auto import all nix code from `./modules`, treat each one as a flake and merge them
-        (
-          map (m: "${./.}/nix/modules/${m}")
-            (builtins.attrNames (builtins.readDir ./nix/modules))
-        )
+        (map (m: "${./.}/nix/modules/${m}")
+          (builtins.attrNames (builtins.readDir ./nix/modules)))
         ++ [
           (inputs.pre-commit-hooks-nix + /flake-module.nix)
         ];
+
 
       perSystem = { pkgs, ... }: {
         legacyPackages = pkgs;

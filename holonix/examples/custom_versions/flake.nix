@@ -1,15 +1,16 @@
 {
-  # used for debugging
+  description = "Template for Holochain app development that uses a specific versions set";
 
-  # useful commands:
-  # show which tag holochain points to:
-  # git tag --points-at $(nix flake metadata . --json | jq --raw-output '.locks.nodes.holochain.locked.rev') | grep holochain-
+  inputs = {
+    holochain-flake.url = "github:holochain/holochain";
 
-  description = "Template for Holochain app development with custom versions";
+    holochain-versions.url = "github:holochain/holochain?dir=versions/0_2";
 
-  inputs.holochain-flake.url = "github:holochain/holochain/pr_versions_0_2?dir=versions/0_2";
-  inputs.nixpkgs.follows = "holochain-flake/nixpkgs";
-  inputs.flake-parts.follows = "holochain-flake/flake-parts";
+    holochain-flake.inputs.holochain.follows = "holochain-versions/holochain";
+    holochain-flake.inputs.lair.follows = "holochain-versions/lair";
+    holochain-flake.inputs.launcher.follows = "holochain-versions/launcher";
+    holochain-flake.inputs.scaffolding.follows = "holochain-versions/scaffolding";
+  };
 
   outputs = inputs @ { ... }:
     inputs.flake-parts.lib.mkFlake { inherit inputs; }
