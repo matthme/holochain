@@ -437,15 +437,14 @@
       },
       "locked": {
         "dir": "versions/0_2",
-        "lastModified": 1683275290,
-        "narHash": "sha256-jZJ6N+hh7kZOL3Z9ReeXZ/V3ppcfDLP5HHSXnRCJkHQ=",
+        "lastModified": 1683276862,
+        "narHash": "sha256-x0+0tk8W1FfngtvnDcHTBGAHN0gSZphY8W4zh0/BP/g=",
         "type": "git",
         "url": "file:///home/steveej/src/holo/holochain?dir=versions%2f0_2"
       },
       "original": {
         "dir": "versions/0_2",
         "owner": "holochain",
-        "ref": "pr_versions_0_2",
         "repo": "holochain",
         "type": "github"
       }
