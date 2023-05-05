@@ -42,13 +42,13 @@
 
     versions.url = "github:holochain/holochain?dir=versions/0_2";
 
-    holochain.url = "file:///dev/null";
+    holochain.follows = "versions/holochain";
     holochain.flake = false;
-    lair.url = "file:///dev/null";
+    lair.follows = "versions/lair";
     lair.flake = false;
-    launcher.url = "file:///dev/null";
+    launcher.follows = "versions/launcher";
     launcher.flake = false;
-    scaffolding.url = "file:///dev/null";
+    scaffolding.follows = "versions/scaffolding";
     scaffolding.flake = false;
 
     cargo-chef = {
