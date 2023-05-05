@@ -1,7 +1,7 @@
 {
   inputs =
     {
-      holochain.url = "github:holochain/holochain/develop-0.2";
+      holochain.url = "github:holochain/holochain/main-0.2";
       holochain.flake = false;
       lair.url = "github:holochain/lair/lair_keystore-v0.2.4";
       lair.flake = false;
