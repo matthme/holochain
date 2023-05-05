@@ -9,6 +9,7 @@
       commonArgs = {
 
         pname = "hc-scaffold";
+        # TODO: read inputs.<component> first
         src = inputs.versions.inputs.scaffolding;
 
         CARGO_PROFILE = "release";

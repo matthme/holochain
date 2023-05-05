@@ -9,6 +9,7 @@
       commonArgs = {
 
         pname = "lair-keystore";
+        # TODO: read inputs.<component> first
         src = inputs.versions.inputs.lair;
 
         CARGO_PROFILE = "release";

@@ -9,6 +9,7 @@
       commonArgs = {
 
         pname = "hc-launch";
+        # TODO: read inputs.<component> first
         src = inputs.versions.inputs.launcher;
 
         CARGO_PROFILE = "release";
