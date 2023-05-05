@@ -2,9 +2,11 @@
   description = "Template for Holochain app development that uses a specific versions set";
 
   inputs = {
-    holochain-flake.url = "github:holochain/holochain";
+    holochain-flake.url = "github:holochain/holochain/experiment_deprecate_component_inputs";
+    holochain-versions.url = "github:holochain/holochain/experiment_deprecate_component_inputs?dir=versions/0_2";
 
-    holochain-versions.url = "github:holochain/holochain?dir=versions/0_2";
+    nixpkgs.follows = "holochain-flake/nixpkgs";
+    flake-parts.follows = "holochain-flake/flake-parts";
   };
 
   outputs = inputs @ { ... }:
