@@ -441,7 +441,7 @@
         "narHash": "sha256-5cIu4ZVyj1EafeZkKt4HtcNJ4m+7DF8P2RwN7Ico4+s=",
         "type": "git",
         "rev": "c324210be446ccf9594fa063ff84918fb2ab7108",
-        "url": "https://github.com/holochain/holochain?dir=versions%2f0_2?allRefs=1"
+        "url": "https://github.com/holochain/holochain?dir=versions%2f0_2&allRefs=true"
       },
       "original": {
         "dir": "versions/0_2",
