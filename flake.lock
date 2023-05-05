@@ -438,7 +438,7 @@
       "locked": {
         "dir": "versions/0_2",
         "lastModified": 1683279210,
-        "narHash": "sha256-5cIu4ZVyj1EafeZkKt4HtcNJ4m+7DF8P2RwN7Ico4+s=",
+        "narHash": "sha256-Kg3xGqCT6xJN+Hy5VMkCMDa5HrAMdkj4aUU8L/u1m9I=",
         "type": "git",
         "rev": "c324210be446ccf9594fa063ff84918fb2ab7108",
         "allRefs": true,
