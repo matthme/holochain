@@ -440,7 +440,8 @@
         "lastModified": 1683279210,
         "narHash": "sha256-5cIu4ZVyj1EafeZkKt4HtcNJ4m+7DF8P2RwN7Ico4+s=",
         "type": "git",
-        "url": "file:///home/steveej/src/holo/holochain?dir=versions%2f0_2"
+        "rev": "c324210be446ccf9594fa063ff84918fb2ab7108",
+        "url": "https://github.com/holochain/holochain/experiment_deprecate_component_inputs?dir=versions%2f0_2"
       },
       "original": {
         "dir": "versions/0_2",
