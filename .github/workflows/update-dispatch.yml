@@ -28,10 +28,10 @@ jobs:
       fail-fast: false
       matrix:
         branch:
-          - name: develop
-            skip: false
+          # - name: develop
+          #   skip: true
           - name: ${{ github.ref_name }}
-            skip: true
+            skip: false
         update:
           - source: "versions/0_1"
             cmd: "nix run .#scripts-repo-flake-update 0_1"
@@ -55,11 +55,19 @@ jobs:
         run: echo
       - name: Checkout repository
         if: ${{ steps.skip.outcome != 'skipped' }}
-        uses: actions/checkout@v2.4.0
+        uses: actions/checkout@v3
+      - name: Create auto-update branch
+        env: 
+          UPDATE_BRANCH: "auto-update/${{ matrix.branch.name }}/${{ matrix.update.source }}"
+        shell: bash
+        run: |
+          git checkout -b ${UPDATE_BRANCH}
+          git push origin ${UPDATE_BRANCH} -f
       - name: Call the update action
         if: ${{ steps.skip.outcome != 'skipped' }}
         uses: ./.github/actions/update
         with:
+          update_branch: "auto-update/${{ matrix.branch.name }}/${{ matrix.update.source }}"
           branch: ${{ matrix.branch.name }}
           update_source: ${{ matrix.update.source }}
           update_cmd: ${{ matrix.update.cmd }}
@@ -67,6 +75,20 @@ jobs:
           HRA_GITHUB_TOKEN: ${{ secrets.HRA_GITHUB_TOKEN }}
           CACHIX_SIGNING_KEY: ${{ secrets.CACHIX_SIGNING_KEY }}
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+      - name: test
+        uses: ./.github/workflows/holochain-build-and-test.yml
+        with:
+          branch: "auto-update/${{ matrix.branch.name }}/${{ matrix.udpate.source }}"
+      - name: Checkout repository
+        if: ${{ steps.skip.outcome != 'skipped' }}
+        uses: actions/checkout@v3
+        with:
+          ref: "auto-update/${{ matrix.branch.name }}/${{ matrix.udpate.source }}"
+      - name: merge and push
+        shell: bash
+        run: |
+          echo TODO
+          exit 1
   all-jobs-succeed:
     runs-on: "ubuntu-latest"
     needs: [call-update]

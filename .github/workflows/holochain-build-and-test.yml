@@ -13,6 +13,10 @@ on:
         required: false
         type: boolean
         default: false
+      branch:
+        required: false
+        type: string
+        default: ""
 
 jobs:
   test:
@@ -82,7 +86,12 @@ jobs:
             nix-store --realise ${{inputs.repo_path }}
           fi
 
-          git checkout -b "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-develop}}"
+          if [[ -n "${{ inputs.branch }}" ]]; then
+            git fetch origin
+            git checkout origin/${{ inputs.branch }}
+          else
+            git checkout -b "${GITHUB_HEAD_REF:-${GITHUB_REF_NAME:-develop}}"
+          fi
 
           nix build --no-link -L --show-trace \
             ${{ matrix.cmd.extra_arg }} \
