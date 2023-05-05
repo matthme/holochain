@@ -12,7 +12,7 @@
       },
       "original": {
         "owner": "holochain",
-        "ref": "main-0.2",
+        "ref": "holochain-0.2.0",
         "repo": "holochain",
         "type": "github"
       }
