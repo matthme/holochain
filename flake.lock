@@ -436,11 +436,11 @@
         "scaffolding": "scaffolding_2"
       },
       "locked": {
-        "dir": "./versions/0_2",
-        "narHash": "",
+        "dir": "versions/0_2",
+        "narHash": "sha256-uB+7XH0vBuHZJuLgZ3Y1EIpM+e3nKVG+VaXNTfjLHWE=",
         "owner": "holochain",
         "repo": "holochain",
-        "rev": "5e3d5d4a13f7bb96b58fa6d5caab9020e47e86cb",
+        "rev": "8811adb125d9a63b2c6708c48abfeddcf7a46357",
         "type": "github"
       },
       "original": {
