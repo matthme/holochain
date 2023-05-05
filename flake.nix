@@ -40,18 +40,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    versions.url = "file:///dev/null";
-    versions.flake = false;
+    versions.url = "github:holochain/holochain/pr_versions_0_2?dir=versions/0_2";
 
-    versions_internal.url = "github:holochain/holochain?dir=versions/0_2";
-
-    holochain.follows = "versions_internal/holochain";
+    holochain.url = "file:///dev/null";
     holochain.flake = false;
-    lair.follows = "versions_internal/lair";
+    lair.url = "file:///dev/null";
     lair.flake = false;
-    launcher.follows = "versions_internal/launcher";
+    launcher.url = "file:///dev/null";
     launcher.flake = false;
-    scaffolding.follows = "versions_internal/scaffolding";
+    scaffolding.url = "file:///dev/null";
     scaffolding.flake = false;
 
     cargo-chef = {

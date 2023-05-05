@@ -1,7 +1,7 @@
 { inputs, self, lib, ... }: {
   perSystem = { config, self', inputs', pkgs, ... }:
     let
-      holonix' = pkgs.mkShell {
+      holonix = pkgs.mkShell {
         inputsFrom = [ self'.devShells.rustDev ];
         packages = holonixPackages ++ [ hn-introspect ];
         shellHook = ''
@@ -21,24 +21,6 @@
         pkgs.writeShellScriptBin "hn-introspect" versionsFileText;
 
       versionsInputSpecified = (builtins.pathExists "${inputs.versions.outPath}/flake.nix") || (builtins.readFile inputs.versions.outPath != "");
-      holonix =
-        if versionsInputSpecified
-        then
-          builtins.trace
-            ''
-              DEPRECATION WARNING: 'inputs.versions` has been specified (timestamp: ${toString inputs.versions.lastModified}).
-                  
-              it has been deprecated due to unintended behavior.
-
-              the approach that is known to work better is to define the versions flake as a distinct input in your project's flake. 
-              then configure the holochain-flake to follow all versions by defining individual follows.
-
-              consider the following example flake.nix:
-
-              ${builtins.readFile (self + /holonix/examples/custom_versions/flake.nix)}
-            ''
-            holonix'
-        else holonix';
     in
     {
       devShells.holonix = holonix;

@@ -9,7 +9,7 @@
       commonArgs = {
 
         pname = "hc-scaffold";
-        src = inputs.scaffolding;
+        src = inputs.versions.inputs.scaffolding;
 
         CARGO_PROFILE = "release";
 
