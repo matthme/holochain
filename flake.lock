@@ -439,8 +439,10 @@
         "dir": "versions/0_2",
         "lastModified": 1683276862,
         "narHash": "sha256-x0+0tk8W1FfngtvnDcHTBGAHN0gSZphY8W4zh0/BP/g=",
-        "type": "git",
-        "url": "file:///home/steveej/src/holo/holochain?dir=versions%2f0_2"
+        "owner": "holochain",
+        "repo": "holochain",
+        "rev": "6cea724efa2491f03337ce5b1ece428dd9b68b98",
+        "type": "github"
       },
       "original": {
         "dir": "versions/0_2",
