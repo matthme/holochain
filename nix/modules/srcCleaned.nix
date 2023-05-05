@@ -23,7 +23,11 @@ in
   options.srcCleanedHolochain = lib.mkOption { type = lib.types.raw; };
   config.srcCleanedHolochain = inputs.nix-filter.lib {
     include = includeCommon;
-    root = inputs.versions.inputs.holochain;
+    root =
+      if builtins.pathExists "${inputs.holochain}/Cargo.toml"
+      then inputs.holochain
+      else inputs.versions.inputs.holochain
+    ;
   };
 
   options.srcCleanedReleaseAutomationRepo = lib.mkOption { type = lib.types.raw; };
