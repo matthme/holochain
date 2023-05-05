@@ -45,31 +45,54 @@
           nix flake update --tarball-ttl 0
         )
 
-        if [[ $(${pkgs.git}/bin/git diff -- "$VERSIONS_DIR"/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
+        if [[ $(${pkgs.git}/bin/git diff -- "$VERSIONS_DIR" | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
           echo got no actual source changes, reverting modifications..
           ${pkgs.git}/bin/git checkout $VERSIONS_DIR/flake.lock
           exit 0
-        else
-          git add "$VERSIONS_DIR"/flake.lock
         fi
 
-        if [[ "$VERSIONS_DIR" = "$DEFAULT_VERSIONS_DIR" ]]; then
-          echo default versions $VERSIONS_DIR updated, updating toplevel flake
-          nix flake lock --tarball-ttl 0 --update-input versions --override-input versions "$VERSIONS_DIR"
+        git commit "$VERSIONS_DIR" -m "chore(flakes): update $VERSIONS_DIR"
 
-          # TODO: rewrite lock file to point to github
-          # this could come in handy: 
-          # nix hash path $(nix-prefetch-git "file://$PWD" - -rev c324210be446ccf9594fa063ff84918fb2ab7108 | jq - -raw-output.path)
+        if [[ "$VERSIONS_DIR" != "$DEFAULT_VERSIONS_DIR" ]]; then
+          exit 0
         fi
+
+        echo default versions $VERSIONS_DIR updated, updating toplevel flake
+        nix flake lock --tarball-ttl 0 --update-input versions --override-input versions "$VERSIONS_DIR"
 
         if [[ $(${pkgs.git}/bin/git diff -- flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
           echo got no actual source changes in the toplevel flake.lock, reverting modifications..
           ${pkgs.git}/bin/git checkout flake.lock
-        else
-          git add flake.lock
+          exit 0
         fi
 
-        git commit -m "chore(flakes): update $VERSIONS_DIR"
+
+        # TODO: rewrite lock file to point to github
+        head_rev=$(git rev-parse HEAD)
+        nar_hash=$(nix hash path $(nix eval --impure --raw --expr "builtins.getFlake git+file://$PWD?rev=$(git rev-parse HEAD)"))
+        nix eval --impure --json --expr "
+          let
+            lib = (import ${pkgs.path} {}).lib;
+            lock = builtins.fromJSON (builtins.readFile ./flake.lock);
+            lock_updated = lib.recursiveUpdateUntil 
+              (path: l: r: path == [\"nodes\" \"versions\" \"locked\"]) 
+              lock 
+              {
+                nodes.versions.locked = {
+                  dir = \"versions/''${1}\";
+                  type = \"github\";
+                  owner = \"holochain\";
+                  repo = \"holochain\";
+                  rev = \"$head_rev\";
+                  narHash = \"$nar_hash\";
+                };
+              }
+              ;
+          in lock_updated
+        " | jq --raw-output . > flake.lock.new
+        mv flake.lock{.new,}
+
+        git commit flake.lock -m "chore(flakes): update $VERSIONS_DIR"
       '';
 
       scripts-release-automation-check-and-bump = pkgs.writeShellScriptBin "scripts-release-automation-check-and-bump" ''

@@ -4,7 +4,7 @@
   inputs = {
     holochain-versions.url = "github:holochain/holochain/experiment_deprecate_component_inputs?dir=versions/0_1";
     holochain-flake.url = "github:holochain/holochain/experiment_deprecate_component_inputs";
-    holochain-flake.inputs.versions = "holochain-versions";
+    holochain-flake.inputs.versions.follows = "holochain-versions";
 
     nixpkgs.follows = "holochain-flake/nixpkgs";
     flake-parts.follows = "holochain-flake/flake-parts";
