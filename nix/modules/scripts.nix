@@ -35,12 +35,14 @@
         set -xeuo pipefail
         trap "cd $PWD" EXIT
 
+        # we want to denote relative directories with './' so that `nix flake` interprets it as a `git+file` source type which we prefer.
+        # otherwise it would use `path`.
         export VERSIONS_DIR="./versions/''${1}"
-        export DEFAULT_VERSIONS_DIR="$(nix flake metadata --no-write-lock-file --json | jq --raw-output '.locks.nodes.versions.locked.path')"
+        export DEFAULT_VERSIONS_DIR="./$(nix eval --impure --raw --expr '(builtins.fromJSON (builtins.readFile ./flake.lock)).nodes.versions.locked.dir')"
 
         (
           cd "$VERSIONS_DIR"
-          nix flake update --tarball-ttl 0 --override-input holochain-flake "github:holochain/holochain?ref=$(git rev-parse HEAD)"
+          nix flake update --tarball-ttl 0
         )
 
         if [[ $(${pkgs.git}/bin/git diff -- "$VERSIONS_DIR"/flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then
@@ -52,7 +54,12 @@
         fi
 
         if [[ "$VERSIONS_DIR" = "$DEFAULT_VERSIONS_DIR" ]]; then
-          nix flake lock --tarball-ttl 0 --update-input versions --override-input versions "path:$VERSIONS_DIR" 
+          echo default versions $VERSIONS_DIR updated, updating toplevel flake
+          nix flake lock --tarball-ttl 0 --update-input versions --override-input versions "$VERSIONS_DIR"
+
+          # TODO: rewrite lock file to point to github
+          # this could come in handy: 
+          # nix hash path $(nix-prefetch-git "file://$PWD" - -rev c324210be446ccf9594fa063ff84918fb2ab7108 | jq - -raw-output.path)
         fi
 
         if [[ $(${pkgs.git}/bin/git diff -- flake.lock | grep -E '^[+-]\s+"' | grep -v lastModified --count) -eq 0 ]]; then

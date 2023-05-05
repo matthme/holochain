@@ -9,7 +9,7 @@
       commonArgs = {
 
         pname = "hc-launch";
-        src = inputs.launcher;
+        src = inputs.versions.inputs.launcher;
 
         CARGO_PROFILE = "release";
 
@@ -85,7 +85,7 @@
 
       cargoNix = config.rustHelper.mkCargoNix {
         name = "hc-launch-generated-crate2nix";
-        src = inputs.launcher;
+        src = inputs.versions.inputs.launcher;
         pkgs = rustPkgs;
       };
 

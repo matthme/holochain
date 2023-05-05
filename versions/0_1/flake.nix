@@ -9,16 +9,7 @@
       launcher.flake = false;
       scaffolding.url = "github:holochain/scaffolding/holochain-0.1";
       scaffolding.flake = false;
-
-      holochain-flake.url = "github:holochain/holochain";
-      holochain-flake.inputs.holochain.follows = "holochain";
-      holochain-flake.inputs.lair.follows = "lair";
-      holochain-flake.inputs.launcher.follows = "launcher";
-      holochain-flake.inputs.scaffolding.follows = "scaffolding";
-
-      nixpkgs.follows = "holochain-flake/nixpkgs";
-      flake-parts.follows = "holochain-flake/flake-parts";
     };
 
-  outputs = inputs: inputs.holochain-flake.outputs;
+  outputs = _: { };
 }
