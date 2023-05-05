@@ -182,16 +182,16 @@
     "holochain_2": {
       "flake": false,
       "locked": {
-        "lastModified": 1682615969,
-        "narHash": "sha256-jnlWB6FHITXa6JzaBzHcyaAQimWDVOGySjDayHDjvJs=",
+        "lastModified": 1683224819,
+        "narHash": "sha256-xbjZ2p04Tv1Yei+mh+RaXcAQy1LATnvAjcDvGKMv0pw=",
         "owner": "holochain",
         "repo": "holochain",
-        "rev": "efe64a7f5dfbddc257945bf368db81c7b68de1bd",
+        "rev": "f54baa91d381e4195c23c0936519b6a8bb14a5e4",
         "type": "github"
       },
       "original": {
         "owner": "holochain",
-        "ref": "main-0.2",
+        "ref": "develop-0.2",
         "repo": "holochain",
         "type": "github"
       }
@@ -436,14 +436,11 @@
         "scaffolding": "scaffolding_2"
       },
       "locked": {
-        "dir": "versions/0_2",
-        "lastModified": 1683299478,
-        "narHash": "sha256-m6maA5VDBH4o+23AY5tBVlaS/PoEsrx8GIWTXKtGEbY=",
+        "narHash": "sha256-X8dNL6jX74cDj6JOdREnxMsgFJeBRGaznK5nlGoUQfU=",
         "owner": "holochain",
         "repo": "holochain",
-        "rev": "f4526826941f7336ef20eaa039a25c826a33cb70",
-        "type": "github",
-        "url": "file:///home/steveej/src/holo/holochain?dir=versions%2f0_2"
+        "rev": "287ca17095dab2b6b7e4118af6268ae221d6fd45",
+        "type": "github"
       },
       "original": {
         "dir": "versions/0_2",
