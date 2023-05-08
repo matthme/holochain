@@ -260,7 +260,10 @@ impl SweetConductor {
             .iter()
             .map(|r| {
                 let cell_id = CellId::new(r.dna.dna_hash().clone(), agent.clone());
-                (InstalledCell::new(cell_id, r.role.clone()), membrane_proof)
+                (
+                    InstalledCell::new(cell_id, r.role.clone()),
+                    membrane_proof.clone(),
+                )
             })
             .collect();
         self.raw_handle()
