@@ -44,4 +44,29 @@ pub mod zome_types;
 #[cfg(feature = "test_utils")]
 pub mod test_utils;
 
+use holo_hash::{AgentPubKey, AnyDhtHash};
+use holochain_serialized_bytes::prelude::*;
 pub use holochain_zome_types::entry::EntryHashed;
+use holochain_zome_types::ChainFilter;
+
+/// The return type of a DNA-specified validation function
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, SerializedBytes)]
+pub enum ValidateResult {
+    /// Validation passes
+    Valid,
+    /// Validation fails for the given reason
+    Invalid(String),
+    /// subconscious needs to map this to either pending or abandoned based on context that the
+    /// wasm can't possibly have
+    UnresolvedDependencies(UnresolvedDependencies),
+}
+
+/// Unresolved dependencies that are either a set of hashes
+/// or an agent activity query.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum UnresolvedDependencies {
+    /// A set of hashes
+    Hashes(Vec<AnyDhtHash>),
+    /// A chain query
+    AgentActivity(AgentPubKey, ChainFilter),
+}

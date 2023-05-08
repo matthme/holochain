@@ -21,3 +21,11 @@ pub use dna_store::*;
 pub use error::DnaError;
 pub use holo_hash::*;
 pub use ribosome_store::*;
+
+use crate::ValidateResult;
+
+/// A DNA is just something that provides these functions
+pub trait Dna {
+    /// Validate an op
+    fn validate() -> ValidateResult;
+}
