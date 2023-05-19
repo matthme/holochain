@@ -57,8 +57,8 @@ pub mod host_fn_caller;
 pub mod inline_zomes;
 pub mod network_simulation;
 
-mod wait_for_any;
-pub use wait_for_any::*;
+mod wait_for;
+pub use wait_for::*;
 
 /// Produce file and line number info at compile-time
 #[macro_export]
@@ -693,7 +693,7 @@ pub async fn wait_for_integration<Db: ReadAccess<DbKindDht>>(
     delay: Duration,
 ) {
     for i in 0..num_attempts {
-        let count = display_integration(db).await;
+        let count = display_integration(db);
         if count >= expected_count {
             if count > expected_count {
                 tracing::warn!("count > expected_count, meaning you may not be accounting for all nodes in this test.
@@ -707,7 +707,7 @@ pub async fn wait_for_integration<Db: ReadAccess<DbKindDht>>(
         tokio::time::sleep(delay).await;
     }
 
-    panic!("Database not integrated after {} attempts", num_attempts);
+    panic!("Consistency not achieved after {} attempts", num_attempts);
 }
 
 /// Same as wait for integration but can print other states at the same time
@@ -831,7 +831,7 @@ pub async fn query_integration<Db: ReadAccess<DbKindDht>>(db: &Db) -> Integratio
         .unwrap()
 }
 
-async fn display_integration<Db: ReadAccess<DbKindDht>>(db: &Db) -> usize {
+fn display_integration<Db: ReadAccess<DbKindDht>>(db: &Db) -> usize {
     fresh_reader_test(db.clone(), |txn| {
         txn.query_row(
             "SELECT COUNT(hash) FROM DhtOp WHERE DhtOp.when_integrated IS NOT NULL",

@@ -14,9 +14,9 @@ use holochain_sqlite::prelude::*;
 use holochain_state::prelude::StateMutationResult;
 use holochain_state::prelude::StateQueryResult;
 use holochain_zome_types::CellId;
+use std::collections::HashSet;
 use std::sync::Arc;
 use thiserror::Error;
-use std::collections::HashSet;
 
 use super::error::ConductorResult;
 
@@ -126,12 +126,18 @@ pub async fn exchange_peer_info(envs: Vec<DbWrite<DbKindP2pAgents>>) {
     let mut all_infos: HashSet<AgentInfoSigned> = HashSet::new();
 
     for env in envs.iter() {
-        let infos: HashSet<AgentInfoSigned> = all_agent_infos(env.clone().into()).await.unwrap().into_iter().collect();
+        let infos: HashSet<AgentInfoSigned> = all_agent_infos(env.clone().into())
+            .await
+            .unwrap()
+            .into_iter()
+            .collect();
         all_infos.extend(infos);
     }
 
     for env in envs.iter() {
-        inject_agent_infos(env.clone(), all_infos.iter()).await.unwrap();
+        inject_agent_infos(env.clone(), all_infos.iter())
+            .await
+            .unwrap();
     }
 }
 
@@ -229,6 +235,7 @@ pub async fn list_all_agent_info_signed_near_basis(
 pub async fn query_peer_density(
     env: DbRead<DbKindP2pAgents>,
     topology: Topology,
+    strat: PeerStrat,
     kitsune_space: Arc<kitsune_p2p::KitsuneSpace>,
     dht_arc: DhtArc,
 ) -> ConductorResult<PeerView> {
@@ -246,15 +253,7 @@ pub async fn query_peer_density(
         .collect();
 
     // contains is already checked in the iterator
-    Ok(PeerStrat::default().view(topology, dht_arc, arcs.as_slice()))
-}
-
-/// Put single agent info into store
-pub async fn put_agent_info_signed(
-    environ: DbWrite<DbKindP2pAgents>,
-    agent_info_signed: kitsune_p2p::agent_store::AgentInfoSigned,
-) -> ConductorResult<()> {
-    Ok(p2p_put(&environ, &agent_info_signed).await?)
+    Ok(strat.view(topology, dht_arc, arcs.as_slice()))
 }
 
 fn now() -> u64 {
