@@ -1,8 +1,12 @@
+use crate::test_utils::{
+    get_integrated_ops, get_integrated_ops_light, get_published_ops, integrated_ops_count,
+};
+
 use super::SweetZome;
 use hdk::prelude::*;
 use holo_hash::DnaHash;
 use holochain_sqlite::db::{DbKindAuthored, DbKindDht};
-use holochain_types::db::DbWrite;
+use holochain_types::{db::DbWrite, prelude::DhtOp};
 /// A reference to a Cell created by a SweetConductor installation function.
 /// It has very concise methods for calling a zome on this cell
 #[derive(Clone, Debug)]
@@ -41,5 +45,16 @@ impl SweetCell {
     /// Get a SweetZome with the given name
     pub fn zome<Z: Into<ZomeName>>(&self, zome_name: Z) -> SweetZome {
         SweetZome::new(self.cell_id.clone(), zome_name.into())
+    }
+
+    /// Get number of ops published by this cell
+    pub fn published_ops(&self) -> Vec<DhtOp> {
+        get_published_ops(self.authored_db(), self.cell_id.agent_pubkey())
+    }
+
+    /// Get number of ops integrated by this conductor in this space
+    /// (TODO: this doesn't really belong at the cell level)
+    pub fn integrated_ops(&self) -> Vec<DhtOp> {
+        get_integrated_ops(self.dht_db())
     }
 }

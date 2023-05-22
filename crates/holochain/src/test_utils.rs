@@ -581,7 +581,7 @@ pub async fn consistency_dbs<AuthorDb, DhtDb>(
 {
     let mut expected_count = 0;
     for (author, db) in all_cell_dbs.iter().map(|(author, a, _)| (author, a)) {
-        let ops = get_published_ops(*db, author);
+        let ops = get_published_ops_light(*db, author);
         let count = ops.len();
 
         expected_count += count;
@@ -626,7 +626,7 @@ async fn consistency_dbs_others<AuthorDb, DhtDb>(
 {
     let mut expected_count = 0;
     for (author, db) in all_cell_dbs.iter().map(|(author, a, _)| (author, a)) {
-        let count = get_published_ops(*db, author).len();
+        let count = get_published_ops_light(*db, author).len();
         expected_count += count;
     }
     let start = Some(std::time::Instant::now());
@@ -638,7 +638,8 @@ async fn consistency_dbs_others<AuthorDb, DhtDb>(
     }
 }
 
-fn get_published_ops<Db: ReadAccess<DbKindAuthored>>(
+/// Get all [`DhtOpLight`] published by this agent
+pub fn get_published_ops_light<Db: ReadAccess<DbKindAuthored>>(
     db: &Db,
     author: &AgentPubKey,
 ) -> Vec<DhtOpLight> {
@@ -675,6 +676,114 @@ fn get_published_ops<Db: ReadAccess<DbKindAuthored>>(
     })
 }
 
+/// Get all [`DhtOp`] published by this agent
+pub fn get_published_ops<Db: ReadAccess<DbKindAuthored>>(
+    db: &Db,
+    author: &AgentPubKey,
+) -> Vec<DhtOp> {
+    fresh_reader_test(db.clone(), |txn| {
+        txn.prepare(
+            "
+            SELECT
+            DhtOp.type, Action.hash, Action.blob as action_blob, Entry.blob as entry_blob
+            FROM DhtOp
+            JOIN
+            Action ON DhtOp.action_hash = Action.hash            
+            LEFT JOIN
+            Entry ON Action.entry_hash = Entry.hash
+            WHERE
+            Action.author = :author
+            AND (DhtOp.type != :store_entry OR Action.private_entry = 0)
+            ORDER BY DhtOp.rowid ASC
+        ",
+        )
+        .unwrap()
+        .query_and_then(
+            named_params! {
+                ":store_entry": DhtOpType::StoreEntry,
+                ":author": author,
+            },
+            |row| {
+                let op_type: DhtOpType = row.get("type")?;
+                let hash: ActionHash = row.get("hash")?;
+                let action: SignedAction = from_blob(row.get("action_blob")?)?;
+                let entry: Option<Vec<u8>> = row.get("entry_blob")?;
+                let entry: Option<Entry> = match entry {
+                    Some(entry) => Some(from_blob::<Entry>(entry)?),
+                    None => None,
+                };
+                Ok(DhtOp::from_type(op_type, action, entry)?)
+            },
+        )
+        .unwrap()
+        .collect::<StateQueryResult<_>>()
+        .unwrap()
+    })
+}
+
+/// Get all [`DhtOpLight`] integrated by this node
+pub fn get_integrated_ops_light<Db: ReadAccess<DbKindDht>>(db: &Db) -> Vec<DhtOpLight> {
+    fresh_reader_test(db.clone(), |txn| {
+        txn.prepare(
+            "
+            SELECT
+            DhtOp.type, Action.hash, Action.blob
+            FROM DhtOp
+            JOIN
+            Action ON DhtOp.action_hash = Action.hash
+            WHERE
+            DhtOp.when_integrated IS NOT NULL
+            ORDER BY DhtOp.rowid ASC
+        ",
+        )
+        .unwrap()
+        .query_and_then(named_params! {}, |row| {
+            let op_type: DhtOpType = row.get("type")?;
+            let hash: ActionHash = row.get("hash")?;
+            let action: SignedAction = from_blob(row.get("blob")?)?;
+            Ok(DhtOpLight::from_type(op_type, hash, &action.0)?)
+        })
+        .unwrap()
+        .collect::<StateQueryResult<_>>()
+        .unwrap()
+    })
+}
+
+/// Get all [`DhtOpLight`] integrated by this node
+pub fn get_integrated_ops<Db: ReadAccess<DbKindDht>>(db: &Db) -> Vec<DhtOp> {
+    fresh_reader_test(db.clone(), |txn| {
+        txn.prepare(
+            "
+            SELECT
+            DhtOp.type, Action.hash, Action.blob as action_blob, Entry.blob as entry_blob
+            FROM DhtOp
+            JOIN
+            Action ON DhtOp.action_hash = Action.hash
+            LEFT JOIN
+            Entry ON Action.entry_hash = Entry.hash
+            WHERE
+            DhtOp.when_integrated IS NOT NULL
+            ORDER BY DhtOp.rowid ASC
+        ",
+        )
+        .unwrap()
+        .query_and_then(named_params! {}, |row| {
+            let op_type: DhtOpType = row.get("type")?;
+            let hash: ActionHash = row.get("hash")?;
+            let action: SignedAction = from_blob(row.get("action_blob")?)?;
+            let entry: Option<Vec<u8>> = row.get("entry_blob")?;
+            let entry: Option<Entry> = match entry {
+                Some(entry) => Some(from_blob::<Entry>(entry)?),
+                None => None,
+            };
+            Ok(DhtOp::from_type(op_type, action, entry)?)
+        })
+        .unwrap()
+        .collect::<StateQueryResult<_>>()
+        .unwrap()
+    })
+}
+
 /// Same as wait_for_integration but with a default wait time of 10 seconds
 #[tracing::instrument(skip(db))]
 pub async fn wait_for_integration_1m<Db: ReadAccess<DbKindDht>>(db: &Db, expected_count: usize) {
@@ -693,16 +802,16 @@ pub async fn wait_for_integration<Db: ReadAccess<DbKindDht>>(
     delay: Duration,
 ) {
     for i in 0..num_attempts {
-        let count = display_integration(db);
+        let count = integrated_ops_count(db);
+        let total_time_waited = delay * i as u32;
+        tracing::info!(?count, ?total_time_waited, counts = ?query_integration(db).await);
+
         if count >= expected_count {
             if count > expected_count {
                 tracing::warn!("count > expected_count, meaning you may not be accounting for all nodes in this test.
                 Consistency may not be complete.")
             }
             return;
-        } else {
-            let total_time_waited = delay * i as u32;
-            tracing::debug!(?count, ?total_time_waited, counts = ?query_integration(db).await);
         }
         tokio::time::sleep(delay).await;
     }
@@ -831,7 +940,8 @@ pub async fn query_integration<Db: ReadAccess<DbKindDht>>(db: &Db) -> Integratio
         .unwrap()
 }
 
-fn display_integration<Db: ReadAccess<DbKindDht>>(db: &Db) -> usize {
+/// Get the number of integrated ops in this db
+pub fn integrated_ops_count<Db: ReadAccess<DbKindDht>>(db: &Db) -> usize {
     fresh_reader_test(db.clone(), |txn| {
         txn.query_row(
             "SELECT COUNT(hash) FROM DhtOp WHERE DhtOp.when_integrated IS NOT NULL",
@@ -840,6 +950,11 @@ fn display_integration<Db: ReadAccess<DbKindDht>>(db: &Db) -> usize {
         )
         .unwrap()
     })
+}
+
+/// Get the number of ops published
+pub fn published_ops_count<Db: ReadAccess<DbKindAuthored>>(db: &Db, author: &AgentPubKey) -> usize {
+    get_published_ops_light(db, author).len()
 }
 
 /// Helper for displaying agent infos stored on a conductor
