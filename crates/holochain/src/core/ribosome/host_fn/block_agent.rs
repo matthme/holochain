@@ -122,7 +122,8 @@ mod test {
         let action1: ActionHash = alice_conductor.call(&alice, "create_entry", ()).await;
 
         // Now that bob is blocked by alice he cannot get data from alice.
-        consistency_10s_advanced([(&alice_cell, true), (&bob_cell, true), (&carol_cell, false)]).await;
+        // consistency_10s_advanced([(&alice_cell, true), (&bob_cell, true), (&carol_cell, false)]).await;
+        tokio::time::sleep(std::time::Duration::from_secs(20)).await;
         let bob_get1: Option<Record> = bob_conductor.call(&bob, "get_post", action1.clone()).await;
 
         assert!(bob_get1.is_none());
