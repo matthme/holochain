@@ -1,10 +1,10 @@
 //! An in-memory network for sharded kitsune tests.
 
 use crate::gossip::sharded_gossip::{BandwidthThrottle, GossipType, ShardedGossip};
-use crate::meta_net::*;
 use crate::test_util::spawn_handler;
 use crate::types::gossip::*;
 use crate::types::wire;
+use crate::{meta_net::*, HostApiLegacy};
 use futures::stream::StreamExt;
 use ghost_actor::dependencies::tracing;
 use ghost_actor::GhostResult;
@@ -128,16 +128,16 @@ impl Switchboard {
         let ep_hnd = ep.handle().clone();
 
         let evt_handler = SwitchboardEventHandler::new(ep_hnd.clone(), self.clone());
-        let host_api = Arc::new(evt_handler.clone());
         let (evt_sender, handler_task) = spawn_handler(evt_handler.clone()).await;
+        let host_api = Arc::new(evt_handler.clone());
+        let host_api = HostApiLegacy::new(host_api, evt_sender);
 
         let bandwidth = Arc::new(BandwidthThrottle::new(1000.0, 1000.0, 10.0));
 
         let gossip = ShardedGossip::new(
             tuning_params,
             space.clone(),
-            MetaNet::Tx2(ep_hnd.clone(), host_api.clone()),
-            evt_sender,
+            MetaNet::Tx2(ep_hnd.clone(), host_api.api.clone()),
             host_api.clone(),
             self.gossip_type,
             bandwidth,
@@ -161,7 +161,7 @@ impl Switchboard {
                                 let data: Box<[u8]> = data.into_boxed_slice();
 
                                 gossip_module.incoming_gossip(
-                                    MetaNetCon::Tx2(con, host_api.clone()),
+                                    MetaNetCon::Tx2(con, host_api.api.clone()),
                                     url.to_string(),
                                     data,
                                 )?

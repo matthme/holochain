@@ -631,14 +631,14 @@ impl MetaNet {
     #[cfg(feature = "tx5")]
     pub async fn new_tx5(
         tuning_params: KitsuneP2pTuningParams,
-        host: HostApi,
+        host: HostApiLegacy,
         kitsune_internal_sender: ghost_actor::GhostSender<crate::spawn::Internal>,
-        evt_sender: futures::channel::mpsc::Sender<KitsuneP2pEvent>,
         signal_url: String,
     ) -> KitsuneP2pResult<(Self, MetaNetEvtRecv)> {
         let (mut evt_send, evt_recv) =
             futures::channel::mpsc::channel(tuning_params.concurrent_limit_per_thread);
 
+        let evt_sender = host.legacy.clone();
         let mut tx5_config = tx5::DefConfig::default()
             .with_max_send_bytes(tuning_params.tx5_max_send_bytes)
             .with_max_recv_bytes(tuning_params.tx5_max_recv_bytes)
@@ -731,7 +731,7 @@ impl MetaNet {
                             .send(MetaNetEvt::Connected {
                                 remote_url: rem_cli_url.to_string(),
                                 con: MetaNetCon::Tx5 {
-                                    host: spawn_host.clone(),
+                                    host: spawn_host.api.clone(),
                                     ep: ep_hnd2.clone(),
                                     rem_url: rem_cli_url,
                                     res: res_store2.clone(),
@@ -749,7 +749,7 @@ impl MetaNet {
                             .send(MetaNetEvt::Disconnected {
                                 remote_url: rem_cli_url.to_string(),
                                 con: MetaNetCon::Tx5 {
-                                    host: spawn_host.clone(),
+                                    host: spawn_host.api.clone(),
                                     ep: ep_hnd2.clone(),
                                     rem_url: rem_cli_url,
                                     res: res_store2.clone(),
@@ -778,7 +778,7 @@ impl MetaNet {
                                             .send(MetaNetEvt::Notify {
                                                 remote_url: rem_cli_url.to_string(),
                                                 con: MetaNetCon::Tx5 {
-                                                    host: spawn_host.clone(),
+                                                    host: spawn_host.api.clone(),
                                                     ep: ep_hnd2.clone(),
                                                     rem_url: rem_cli_url,
                                                     res: res_store2.clone(),
@@ -825,7 +825,7 @@ impl MetaNet {
                                             .send(MetaNetEvt::Request {
                                                 remote_url: rem_cli_url.to_string(),
                                                 con: MetaNetCon::Tx5 {
-                                                    host: spawn_host.clone(),
+                                                    host: spawn_host.api.clone(),
                                                     ep: ep_hnd2.clone(),
                                                     rem_url: rem_cli_url,
                                                     res: res_store2.clone(),
@@ -875,7 +875,7 @@ impl MetaNet {
 
         Ok((
             MetaNet::Tx5 {
-                host,
+                host: host.api,
                 ep: ep_hnd,
                 url: cli_url,
                 res: res_store,
