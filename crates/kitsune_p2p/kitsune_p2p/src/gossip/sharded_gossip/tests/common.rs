@@ -154,7 +154,7 @@ async fn standard_responses(
         strat: ArqStrat::default(),
         with_data,
     };
-    evt_handler.expect_handle_query_agents().returning({
+    evt_handler.expect_query_agents().returning({
         move |_| {
             let infos = infos.clone();
             Ok(async move { Ok(infos.clone()) }.boxed().into())
@@ -165,33 +165,29 @@ async fn standard_responses(
         let fake_data = KitsuneOpData::new(vec![0]);
         let fake_hash = hash_op_data(&fake_data.0);
         let fake_hash_2 = fake_hash.clone();
-        evt_handler
-            .expect_handle_query_op_hashes()
-            .returning(move |_| {
-                let hash = fake_hash_2.clone();
-                Ok(
-                    async move { Ok(Some((vec![hash], full_time_window_inclusive()))) }
-                        .boxed()
-                        .into(),
-                )
-            });
-        evt_handler
-            .expect_handle_fetch_op_data()
-            .returning(move |_| {
-                let hash = fake_hash.clone();
-                let data = fake_data.clone();
-                Ok(async move { Ok(vec![(hash, data)]) }.boxed().into())
-            });
+        evt_handler.expect_query_op_hashes().returning(move |_| {
+            let hash = fake_hash_2.clone();
+            Ok(
+                async move { Ok(Some((vec![hash], full_time_window_inclusive()))) }
+                    .boxed()
+                    .into(),
+            )
+        });
+        evt_handler.expect_fetch_op_data().returning(move |_| {
+            let hash = fake_hash.clone();
+            let data = fake_data.clone();
+            Ok(async move { Ok(vec![(hash, data)]) }.boxed().into())
+        });
     } else {
         evt_handler
-            .expect_handle_query_op_hashes()
+            .expect_query_op_hashes()
             .returning(|_| Ok(async { Ok(None) }.boxed().into()));
         evt_handler
-            .expect_handle_fetch_op_data()
+            .expect_fetch_op_data()
             .returning(|_| Ok(async { Ok(vec![]) }.boxed().into()));
     }
     evt_handler
-        .expect_handle_receive_ops()
+        .expect_receive_ops()
         .returning(|_, _, _| Ok(async { Ok(()) }.boxed().into()));
 
     (evt_handler, Arc::new(host_api))

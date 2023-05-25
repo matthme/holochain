@@ -2,6 +2,7 @@ use crate::actor::*;
 use crate::event::*;
 use crate::HostApi;
 use crate::HostApiLegacy;
+use crate::KitsuneP2pResult;
 
 mod actor;
 pub(crate) use actor::meta_net;
@@ -17,10 +18,7 @@ pub async fn spawn_kitsune_p2p(
     config: crate::KitsuneP2pConfig,
     tls_config: kitsune_p2p_types::tls::TlsConfig,
     host: HostApi,
-) -> KitsuneP2pResult<(
-    ghost_actor::GhostSender<KitsuneP2p>,
-    KitsuneP2pEventReceiver,
-)> {
+) -> KitsuneP2pResult<KitsuneP2pActor> {
     let (evt_send, evt_recv) = futures::channel::mpsc::channel(10);
     let builder = ghost_actor::actor_builder::GhostActorBuilder::new();
 
@@ -28,14 +26,9 @@ pub async fn spawn_kitsune_p2p(
 
     let internal_sender = channel_factory.create_channel::<Internal>().await?;
 
-    let sender = channel_factory.create_channel::<KitsuneP2p>().await?;
     let host = HostApiLegacy::new(host, evt_send);
 
-    tokio::task::spawn(builder.spawn(
-        KitsuneP2pActor::new(config, tls_config, channel_factory, internal_sender, host).await?,
-    ));
-
-    Ok((sender, evt_recv))
+    KitsuneP2pActor::new(config, tls_config, channel_factory, internal_sender, host).await
 }
 
 /// Spawn a new KitsuneP2p actor, using a closure to generate the HostApi.

@@ -49,7 +49,7 @@ pub enum KitsuneP2pError {
     Other(Box<dyn std::error::Error + Send + Sync>),
 }
 
-pub use crate::actor::KitsuneP2pResult;
+pub type KitsuneP2pResult<T> = Result<T, KitsuneP2pError>;
 
 impl KitsuneP2pError {
     /// promote a custom error type to a KitsuneP2pError
@@ -83,6 +83,8 @@ impl From<&str> for KitsuneP2pError {
     }
 }
 
+pub type KitsuneP2pHandlerResult<T> = KitsuneP2pResult<MustBoxFuture<'static, KitsuneP2pResult<T>>>;
+
 pub use kitsune_p2p_types::bin_types::*;
 
 /// Data structures to be stored in the agent/peer database.
@@ -99,6 +101,7 @@ pub mod wire;
 pub use gossip::GossipModuleType;
 pub use kitsune_p2p_types::dht;
 pub use kitsune_p2p_types::dht_arc;
+use must_future::MustBoxFuture;
 
 #[allow(missing_docs)]
 pub mod metrics;

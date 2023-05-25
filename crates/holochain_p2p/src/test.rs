@@ -13,16 +13,6 @@ impl ghost_actor::GhostControlHandler for StubNetwork {}
 
 #[allow(unused_variables)]
 impl HolochainP2pHandler for StubNetwork {
-    fn handle_join(
-        &mut self,
-        dna_hash: DnaHash,
-        agent_pub_key: AgentPubKey,
-        maybe_agent_info: Option<AgentInfoSigned>,
-        initial_arc: Option<crate::dht_arc::DhtArc>,
-    ) -> HolochainP2pHandlerResult<()> {
-        Err("stub".into())
-    }
-
     fn handle_leave(
         &mut self,
         dna_hash: DnaHash,

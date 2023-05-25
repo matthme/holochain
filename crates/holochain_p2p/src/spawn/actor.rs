@@ -600,8 +600,8 @@ impl ghost_actor::GhostHandler<kitsune_p2p::event::KitsuneP2pEvent> for Holochai
 impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
     /// We need to store signed agent info.
     #[tracing::instrument(skip(self), level = "trace")]
-    fn handle_put_agent_info_signed(
-        &mut self,
+    fn put_agent_info_signed(
+        &self,
         input: kitsune_p2p::event::PutAgentInfoSignedEvt,
     ) -> kitsune_p2p::event::KitsuneP2pEventHandlerResult<()> {
         let kitsune_p2p::event::PutAgentInfoSignedEvt { space, peer_data } = input;
@@ -620,8 +620,8 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
     /// this is that Holochain is optimized for these three query types, while
     /// kitsune has a more general interface.
     #[tracing::instrument(skip(self), level = "trace")]
-    fn handle_query_agents(
-        &mut self,
+    fn query_agents(
+        &self,
         input: kitsune_p2p::event::QueryAgentsEvt,
     ) -> kitsune_p2p::event::KitsuneP2pEventHandlerResult<Vec<AgentInfoSigned>> {
         let kitsune_p2p::event::QueryAgentsEvt {
@@ -678,8 +678,8 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
     }
 
     #[tracing::instrument(skip(self), level = "trace")]
-    fn handle_query_peer_density(
-        &mut self,
+    fn query_peer_density(
+        &self,
         space: Arc<kitsune_p2p::KitsuneSpace>,
         dht_arc: kitsune_p2p_types::dht_arc::DhtArc,
     ) -> kitsune_p2p::event::KitsuneP2pEventHandlerResult<kitsune_p2p_types::dht::PeerView> {
@@ -696,8 +696,8 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
 
     /// Handle an incoming call.
     #[tracing::instrument(skip(self, space, to_agent, payload), level = "trace")]
-    fn handle_call(
-        &mut self,
+    fn call(
+        &self,
         space: Arc<kitsune_p2p::KitsuneSpace>,
         to_agent: Arc<kitsune_p2p::KitsuneAgent>,
         payload: Vec<u8>,
@@ -780,8 +780,8 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
 
     /// Handle an incoming notify.
     #[tracing::instrument(skip(self), level = "trace")]
-    fn handle_notify(
-        &mut self,
+    fn notify(
+        &self,
         space: Arc<kitsune_p2p::KitsuneSpace>,
         to_agent: Arc<kitsune_p2p::KitsuneAgent>,
         payload: Vec<u8>,
@@ -867,8 +867,8 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
     }
 
     #[tracing::instrument(skip(self), level = "trace")]
-    fn handle_receive_ops(
-        &mut self,
+    fn receive_ops(
+        &self,
         space: Arc<kitsune_p2p::KitsuneSpace>,
         ops: Vec<KOp>,
         context: Option<FetchContext>,
@@ -896,8 +896,8 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
     }
 
     #[tracing::instrument(skip(self), level = "trace")]
-    fn handle_query_op_hashes(
-        &mut self,
+    fn query_op_hashes(
+        &self,
         input: kitsune_p2p::event::QueryOpHashesEvt,
     ) -> kitsune_p2p::event::KitsuneP2pEventHandlerResult<
         Option<(Vec<Arc<kitsune_p2p::KitsuneOpHash>>, TimeWindowInclusive)>,
@@ -924,8 +924,8 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
 
     #[allow(clippy::needless_collect)]
     #[tracing::instrument(skip(self), level = "trace")]
-    fn handle_fetch_op_data(
-        &mut self,
+    fn fetch_op_data(
+        &self,
         input: kitsune_p2p::event::FetchOpDataEvt,
     ) -> kitsune_p2p::event::KitsuneP2pEventHandlerResult<Vec<(Arc<kitsune_p2p::KitsuneOpHash>, KOp)>>
     {
@@ -953,8 +953,8 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
     }
 
     #[tracing::instrument(skip(self), level = "trace")]
-    fn handle_sign_network_data(
-        &mut self,
+    fn sign_network_data(
+        &self,
         input: kitsune_p2p::event::SignNetworkDataEvt,
     ) -> kitsune_p2p::event::KitsuneP2pEventHandlerResult<kitsune_p2p::KitsuneSignature> {
         let space = DnaHash::from_kitsune(&input.space);
@@ -974,27 +974,6 @@ impl kitsune_p2p::event::KitsuneP2pEventHandler for HolochainP2pActor {
 impl ghost_actor::GhostHandler<HolochainP2p> for HolochainP2pActor {}
 
 impl HolochainP2pHandler for HolochainP2pActor {
-    #[tracing::instrument(skip(self), level = "trace")]
-    fn handle_join(
-        &mut self,
-        dna_hash: DnaHash,
-        agent_pub_key: AgentPubKey,
-        maybe_agent_info: Option<AgentInfoSigned>,
-        initial_arc: Option<crate::dht_arc::DhtArc>,
-    ) -> HolochainP2pHandlerResult<()> {
-        let space = dna_hash.into_kitsune();
-        let agent = agent_pub_key.into_kitsune();
-
-        let kitsune_p2p = self.kitsune_p2p.clone();
-        Ok(async move {
-            Ok(kitsune_p2p
-                .join(space, agent, maybe_agent_info, initial_arc)
-                .await?)
-        }
-        .boxed()
-        .into())
-    }
-
     #[tracing::instrument(skip(self), level = "trace")]
     fn handle_leave(
         &mut self,

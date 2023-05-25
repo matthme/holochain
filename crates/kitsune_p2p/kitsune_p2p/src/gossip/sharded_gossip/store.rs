@@ -7,7 +7,6 @@ use std::{collections::HashSet, sync::Arc};
 use crate::event::{
     PutAgentInfoSignedEvt, QueryAgentsEvt, QueryOpHashesEvt, TimeWindow, TimeWindowInclusive,
 };
-use crate::types::event::KitsuneP2pEventSender;
 use crate::{HostApi, HostApiLegacy};
 use kitsune_p2p_timestamp::Timestamp;
 use kitsune_p2p_types::dht::region_set::RegionSetLtcs;

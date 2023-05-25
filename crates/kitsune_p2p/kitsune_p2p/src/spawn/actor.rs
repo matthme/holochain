@@ -8,6 +8,7 @@ use crate::gossip::sharded_gossip::KitsuneDiagnostics;
 use crate::spawn::actor::bootstrap::BootstrapNet;
 use crate::types::gossip::GossipModuleType;
 use crate::types::metrics::KitsuneMetrics;
+use crate::types::KitsuneP2pHandlerResult;
 use crate::wire::MetricExchangeMsg;
 use crate::*;
 use futures::future::FutureExt;
@@ -17,6 +18,7 @@ use kitsune_p2p_timestamp::Timestamp;
 use kitsune_p2p_types::agent_info::AgentInfoSigned;
 use kitsune_p2p_types::async_lazy::AsyncLazy;
 use kitsune_p2p_types::tx2::tx2_api::*;
+use kitsune_p2p_types::tx2::tx2_utils::Share;
 use kitsune_p2p_types::*;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -45,76 +47,95 @@ type MaybeDelegate = Option<(KBasis, u32, u32)>;
 const UNAUTHORIZED_DISCONNECT_CODE: u32 = 0x59ea599e;
 const UNAUTHORIZED_DISCONNECT_REASON: &str = "unauthorized";
 
-ghost_actor::ghost_chan! {
-    #[allow(clippy::too_many_arguments)]
-    pub chan Internal<crate::KitsuneP2pError> {
-        /// Register space event handler
-        fn register_space_event_handler(recv: EvtRcv) -> ();
+#[allow(clippy::too_many_arguments)]
+pub trait InternalHandler {
+    /// Register space event handler
+    fn register_space_event_handler(&self, recv: EvtRcv) -> KitsuneP2pHandlerResult<()>;
 
-        /// Incoming Delegate Broadcast
-        /// We are being requested to delegate a broadcast to our neighborhood
-        /// on behalf of an author. `mod_idx` / `mod_cnt` inform us which
-        /// neighbors we are responsible for.
-        /// (See comments in actual method impl for more detail.)
-        fn incoming_delegate_broadcast(
-            space: KSpace,
-            basis: KBasis,
-            to_agent: KAgent,
-            mod_idx: u32,
-            mod_cnt: u32,
-            data: BroadcastData,
-        ) -> ();
+    /// Incoming Delegate Broadcast
+    /// We are being requested to delegate a broadcast to our neighborhood
+    /// on behalf of an author. `mod_idx` / `mod_cnt` inform us which
+    /// neighbors we are responsible for.
+    /// (See comments in actual method impl for more detail.)
+    fn incoming_delegate_broadcast(
+        &self,
+        space: KSpace,
+        basis: KBasis,
+        to_agent: KAgent,
+        mod_idx: u32,
+        mod_cnt: u32,
+        data: BroadcastData,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-        /// This should be invoked instead of incoming_delegate_broadcast
-        /// in the case of a publish data variant. It will, in turn, call
-        /// into incoming_delegate_broadcast once we have the data to act
-        /// as a fetch responder for the op data.
-        fn incoming_publish(
-            space: KSpace,
-            to_agent: KAgent,
-            source: KAgent,
-            op_hash_list: OpHashList,
-            context: kitsune_p2p_fetch::FetchContext,
-            maybe_delegate: MaybeDelegate,
-        ) -> ();
+    /// This should be invoked instead of incoming_delegate_broadcast
+    /// in the case of a publish data variant. It will, in turn, call
+    /// into incoming_delegate_broadcast once we have the data to act
+    /// as a fetch responder for the op data.
+    fn incoming_publish(
+        &self,
+        space: KSpace,
+        to_agent: KAgent,
+        source: KAgent,
+        op_hash_list: OpHashList,
+        context: kitsune_p2p_fetch::FetchContext,
+        maybe_delegate: MaybeDelegate,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-        /// We just received data for an op_hash. Check if we had a pending
-        /// delegation action we need to continue now that we have the data.
-        fn resolve_publish_pending_delegates(space: KSpace, op_hash: KOpHash) -> ();
+    /// We just received data for an op_hash. Check if we had a pending
+    /// delegation action we need to continue now that we have the data.
+    fn resolve_publish_pending_delegates(
+        &self,
+        space: KSpace,
+        op_hash: KOpHash,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-        /// Incoming Gossip
-        fn incoming_gossip(space: KSpace, con: MetaNetCon, remote_url: String, data: Payload, module_type: crate::types::gossip::GossipModuleType) -> ();
+    /// Incoming Gossip
+    fn incoming_gossip(
+        &self,
+        space: KSpace,
+        con: MetaNetCon,
+        remote_url: String,
+        data: Payload,
+        module_type: crate::types::gossip::GossipModuleType,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-        /// Incoming Metric Exchange
-        fn incoming_metric_exchange(space: KSpace, msgs: VecMXM) -> ();
+    /// Incoming Metric Exchange
+    fn incoming_metric_exchange(&self, space: KSpace, msgs: VecMXM) -> KitsuneP2pHandlerResult<()>;
 
-        /// New Con
-        fn new_con(url: String, con: MetaNetCon) -> ();
+    /// New Con
+    fn new_con(&self, url: String, con: MetaNetCon) -> KitsuneP2pHandlerResult<()>;
 
-        /// Del Con
-        fn del_con(url: String) -> ();
+    /// Del Con
+    fn del_con(&self, url: String) -> KitsuneP2pHandlerResult<()>;
 
-        /// Fetch an op from a remote
-        fn fetch(key: FetchKey, space: KSpace, source: FetchSource) -> ();
+    /// Fetch an op from a remote
+    fn fetch(
+        &self,
+        key: FetchKey,
+        space: KSpace,
+        source: FetchSource,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-        /// Get all local joined agent infos across all spaces.
-        fn get_all_local_joined_agent_infos() -> Vec<AgentInfoSigned>;
+    /// Get all local joined agent infos across all spaces.
+    fn get_all_local_joined_agent_infos(&self) -> KitsuneP2pHandlerResult<Vec<AgentInfoSigned>>;
+}
+
+pub(crate) struct KitsuneP2pState {
+    spaces: HashMap<Arc<KitsuneSpace>, Space>,
+}
+
+impl KitsuneP2pState {
+    pub fn new() -> Share<Self> {
+        Share::new(Self {
+            spaces: HashMap::new(),
+        })
     }
 }
 
 pub(crate) struct KitsuneP2pActor {
-    channel_factory: ghost_actor::actor_builder::GhostActorChannelFactory<Self>,
-    internal_sender: ghost_actor::GhostSender<Internal>,
+    state: Share<KitsuneP2pState>,
     ep_hnd: MetaNet,
     host_api: HostApiLegacy,
-    #[allow(clippy::type_complexity)]
-    spaces: HashMap<
-        Arc<KitsuneSpace>,
-        AsyncLazy<(
-            ghost_actor::GhostSender<KitsuneP2p>,
-            ghost_actor::GhostSender<space::SpaceInternal>,
-        )>,
-    >,
     config: Arc<KitsuneP2pConfig>,
     bootstrap_net: BootstrapNet,
     bandwidth_throttles: BandwidthThrottles,
@@ -723,11 +744,9 @@ impl KitsuneP2pActor {
         ));
 
         Ok(Self {
-            channel_factory,
-            internal_sender,
             ep_hnd,
             host_api,
-            spaces: HashMap::new(),
+            state: KitsuneP2pState::new(),
             config: Arc::new(config),
             bootstrap_net,
             bandwidth_throttles,
@@ -735,11 +754,71 @@ impl KitsuneP2pActor {
             fetch_pool,
         })
     }
+
+    fn get_space(&self, space: &KSpace) -> KitsuneResult<Option<Space>> {
+        self.state.share_ref(|s| Ok(s.spaces.get(space).cloned()))
+    }
+
+    fn with_space<T: Send>(
+        &self,
+        space: &KSpace,
+        f: impl Fn(Space) -> KitsuneP2pHandlerResult<T>,
+        or: impl Fn() -> KitsuneP2pHandlerResult<T>,
+    ) -> KitsuneP2pHandlerResult<T> {
+        if let Some(s) = self.get_space(space)? {
+            f(s).map_err(Into::into)
+        } else {
+            or()
+        }
+    }
+
+    fn for_all_spaces(
+        &self,
+        f: impl Send + Fn(Space) -> KitsuneP2pHandlerResult<()>,
+    ) -> KitsuneP2pHandlerResult<()> {
+        let spaces = self
+            .state
+            .share_mut(|s, _| Ok(s.spaces.values().cloned().collect::<Vec<_>>()))?;
+        Ok(async move {
+            let futs = spaces
+                .into_iter()
+                .map(f)
+                .collect::<KitsuneP2pResult<Vec<_>>>()?;
+            futures::future::join_all(futs)
+                .await
+                .into_iter()
+                .collect::<KitsuneP2pResult<Vec<()>>>()?;
+            Ok(())
+        }
+        .boxed()
+        .into())
+    }
+
+    fn with_all_spaces<T: Send>(
+        &self,
+        f: impl Send + Fn(Space) -> KitsuneP2pHandlerResult<T>,
+    ) -> KitsuneP2pHandlerResult<Vec<T>> {
+        let spaces = self
+            .state
+            .share_mut(|s, _| Ok(s.spaces.values().cloned().collect::<Vec<_>>()))?;
+        Ok(async move {
+            let futs = spaces
+                .into_iter()
+                .map(f)
+                .collect::<KitsuneP2pResult<Vec<_>>>()?;
+            futures::future::join_all(futs)
+                .await
+                .into_iter()
+                .collect::<KitsuneP2pResult<Vec<T>>>()
+        }
+        .boxed()
+        .into())
+    }
 }
 
 use ghost_actor::dependencies::must_future::MustBoxFuture;
 impl ghost_actor::GhostControlHandler for KitsuneP2pActor {
-    fn handle_ghost_actor_shutdown(mut self) -> MustBoxFuture<'static, ()> {
+    fn ghost_actor_shutdown(self) -> MustBoxFuture<'static, ()> {
         use futures::sink::SinkExt;
         use ghost_actor::GhostControlSender;
         async move {
@@ -749,81 +828,50 @@ impl ghost_actor::GhostControlHandler for KitsuneP2pActor {
             // this is a courtesy, ok if fails
             let _ = self.host_api.legacy.close().await;
             self.ep_hnd.close(500, "").await;
-            for (_, space) in self.spaces.into_iter() {
-                let (space, _) = space.get().await;
-                let _ = space.ghost_actor_shutdown_immediate().await;
-            }
+
+            todo!("shutdown all spaces")
         }
         .boxed()
         .into()
     }
 }
 
-impl ghost_actor::GhostHandler<Internal> for KitsuneP2pActor {}
-
-impl InternalHandler for KitsuneP2pActor {
-    fn handle_register_space_event_handler(
-        &mut self,
-        recv: futures::channel::mpsc::Receiver<KitsuneP2pEvent>,
-    ) -> InternalHandlerResult<()> {
-        let f = self.channel_factory.attach_receiver(recv);
-        Ok(async move {
-            f.await?;
-            Ok(())
-        }
-        .boxed()
-        .into())
-    }
-
-    fn handle_incoming_delegate_broadcast(
-        &mut self,
+impl KitsuneP2pActor {
+    pub(crate) fn incoming_delegate_broadcast(
+        &self,
         space: Arc<KitsuneSpace>,
         basis: Arc<KitsuneBasis>,
         to_agent: Arc<KitsuneAgent>,
         mod_idx: u32,
         mod_cnt: u32,
         data: BroadcastData,
-    ) -> InternalHandlerResult<()> {
-        let space_sender = match self.spaces.get_mut(&space) {
-            None => {
+    ) -> KitsuneP2pHandlerResult<()> {
+        self.with_space(
+            &space,
+            |s| s.incoming_delegate_broadcast(space, basis, to_agent, mod_idx, mod_cnt, data),
+            || {
                 tracing::warn!(
                     "received delegate_broadcast for unhandled space: {:?}",
                     space
                 );
-                return unit_ok_fut();
-            }
-            Some(space) => space.get(),
-        };
-        Ok(async move {
-            let (_, space_inner) = space_sender.await;
-            space_inner
-                .incoming_delegate_broadcast(space, basis, to_agent, mod_idx, mod_cnt, data)
-                .await
-        }
-        .boxed()
-        .into())
+                unit_ok_fut()
+            },
+        )
     }
 
-    fn handle_incoming_publish(
-        &mut self,
+    pub(crate) fn incoming_publish(
+        &self,
         space: KSpace,
         to_agent: KAgent,
         source: KAgent,
         op_hash_list: OpHashList,
         context: kitsune_p2p_fetch::FetchContext,
         maybe_delegate: MaybeDelegate,
-    ) -> InternalHandlerResult<()> {
-        let space_sender = match self.spaces.get_mut(&space) {
-            None => {
-                tracing::warn!("received publish for unhandled space: {:?}", space);
-                return unit_ok_fut();
-            }
-            Some(space) => space.get(),
-        };
-        Ok(async move {
-            let (_, space_inner) = space_sender.await;
-            space_inner
-                .incoming_publish(
+    ) -> KitsuneP2pHandlerResult<()> {
+        self.with_space(
+            &space,
+            |s| {
+                s.incoming_publish(
                     space,
                     to_agent,
                     source,
@@ -831,92 +879,70 @@ impl InternalHandler for KitsuneP2pActor {
                     context,
                     maybe_delegate,
                 )
-                .await
-        }
-        .boxed()
-        .into())
+            },
+            || {
+                tracing::warn!("received publish for unhandled space: {:?}", space);
+                unit_ok_fut()
+            },
+        )
     }
 
-    fn handle_resolve_publish_pending_delegates(
-        &mut self,
+    pub(crate) fn resolve_publish_pending_delegates(
+        &self,
         space: KSpace,
         op_hash: KOpHash,
-    ) -> InternalHandlerResult<()> {
-        let space_sender = match self.spaces.get_mut(&space) {
-            None => {
-                return unit_ok_fut();
-            }
-            Some(space) => space.get(),
-        };
-        Ok(async move {
-            let (_, space_inner) = space_sender.await;
-            space_inner
-                .resolve_publish_pending_delegates(space, op_hash)
-                .await
-        }
-        .boxed()
-        .into())
+    ) -> KitsuneP2pHandlerResult<()> {
+        self.with_space(
+            &space,
+            |s| s.resolve_publish_pending_delegates(space, op_hash),
+            || {
+                tracing::warn!(
+                    "resolve_publish_pending_delegates for unhandled space: {:?}",
+                    space
+                );
+                unit_ok_fut()
+            },
+        )
     }
 
-    fn handle_incoming_gossip(
-        &mut self,
+    pub(crate) fn incoming_gossip(
+        &self,
         space: Arc<KitsuneSpace>,
         con: MetaNetCon,
         remote_url: String,
         data: Box<[u8]>,
         module_type: GossipModuleType,
-    ) -> InternalHandlerResult<()> {
-        let space_sender = match self.spaces.get_mut(&space) {
-            None => {
-                tracing::warn!("received gossip for unhandled space: {:?}", space);
-                return unit_ok_fut();
-            }
-            Some(space) => space.get(),
-        };
-        Ok(async move {
-            let (_, space_inner) = space_sender.await;
-            space_inner
-                .incoming_gossip(space, con, remote_url, data, module_type)
-                .await
-        }
-        .boxed()
-        .into())
+    ) -> KitsuneP2pHandlerResult<()> {
+        self.with_space(
+            &space,
+            |s| s.incoming_gossip(space, con, remote_url, data, module_type),
+            || {
+                tracing::warn!("incoming_gossip for unhandled space: {:?}", space);
+                unit_ok_fut()
+            },
+        )
     }
 
-    fn handle_incoming_metric_exchange(
-        &mut self,
+    pub(crate) fn incoming_metric_exchange(
+        &self,
         space: Arc<KitsuneSpace>,
         msgs: Vec<MetricExchangeMsg>,
-    ) -> InternalHandlerResult<()> {
-        let space_sender = match self.spaces.get_mut(&space) {
-            None => {
-                return unit_ok_fut();
-            }
-            Some(space) => space.get(),
-        };
-        Ok(async move {
-            let (_, space_inner) = space_sender.await;
-            space_inner.incoming_metric_exchange(space, msgs).await
-        }
-        .boxed()
-        .into())
+    ) -> KitsuneP2pHandlerResult<()> {
+        self.with_space(
+            &space,
+            |s| s.incoming_metric_exchange(space, msgs),
+            || {
+                tracing::warn!("incoming_metric_exchange for unhandled space: {:?}", space);
+                unit_ok_fut()
+            },
+        )
     }
 
-    fn handle_new_con(&mut self, url: String, con: MetaNetCon) -> InternalHandlerResult<()> {
-        let spaces = self.spaces.values().map(|s| s.get()).collect::<Vec<_>>();
-        Ok(async move {
-            let mut all = Vec::new();
-            for (_, space) in futures::future::join_all(spaces).await {
-                all.push(space.new_con(url.clone(), con.clone()));
-            }
-            let _ = futures::future::join_all(all).await;
-            Ok(())
-        }
-        .boxed()
-        .into())
+    pub(crate) fn new_con(&self, url: String, con: MetaNetCon) -> KitsuneP2pHandlerResult<()> {
+        self.for_all_spaces(|s| s.new_con(url.clone(), con.clone()))
     }
 
-    fn handle_del_con(&mut self, url: String) -> InternalHandlerResult<()> {
+    pub(crate) fn del_con(&self, url: String) -> KitsuneP2pHandlerResult<()> {
         let spaces = self.spaces.values().map(|s| s.get()).collect::<Vec<_>>();
         Ok(async move {
             let mut all = Vec::new();
@@ -930,25 +956,24 @@ impl InternalHandler for KitsuneP2pActor {
         .into())
     }
 
-    fn handle_fetch(
-        &mut self,
+    pub(crate) fn fetch(
+        &self,
         key: FetchKey,
         space: KSpace,
         source: FetchSource,
-    ) -> InternalHandlerResult<()> {
+    ) -> KitsuneP2pHandlerResult<()> {
         let FetchSource::Agent(agent) = source;
 
-        let space_sender = match self.spaces.get_mut(&space) {
+        let space_api = match self.get_space(&space)? {
             None => {
                 tracing::warn!("received fetch for unhandled space: {:?}", space);
                 return unit_ok_fut();
             }
-            Some(space) => space.get(),
+            Some(space) => space,
         };
         Ok(async move {
-            let (_, space_inner) = space_sender.await;
             let payload = wire::Wire::fetch_op(vec![(space, vec![key])]);
-            space_inner.notify(agent, payload).await
+            space_api.notify(agent, payload)?.await
         }
         .boxed()
         .into())
@@ -957,9 +982,9 @@ impl InternalHandler for KitsuneP2pActor {
     /// Best effort to retrieve all local agent infos across all spaces. If there
     /// is an error for some space we simply log it and ignore the error for that
     /// space and return local joined agent infos from the other spaces.
-    fn handle_get_all_local_joined_agent_infos(
-        &mut self,
-    ) -> InternalHandlerResult<Vec<AgentInfoSigned>> {
+    pub(crate) fn get_all_local_joined_agent_infos(
+        &self,
+    ) -> KitsuneP2pHandlerResult<Vec<AgentInfoSigned>> {
         let spaces = self.spaces.values().map(|s| s.get()).collect::<Vec<_>>();
         Ok(async move {
             let mut all = Vec::new();
@@ -987,30 +1012,30 @@ impl InternalHandler for KitsuneP2pActor {
 impl ghost_actor::GhostHandler<KitsuneP2pEvent> for KitsuneP2pActor {}
 
 impl KitsuneP2pEventHandler for KitsuneP2pActor {
-    fn handle_put_agent_info_signed(
-        &mut self,
+    fn put_agent_info_signed(
+        &self,
         input: crate::event::PutAgentInfoSignedEvt,
     ) -> KitsuneP2pEventHandlerResult<()> {
         Ok(self.host_api.legacy.put_agent_info_signed(input))
     }
 
-    fn handle_query_agents(
-        &mut self,
+    fn query_agents(
+        &self,
         input: crate::event::QueryAgentsEvt,
     ) -> KitsuneP2pEventHandlerResult<Vec<crate::types::agent_store::AgentInfoSigned>> {
         Ok(self.host_api.legacy.query_agents(input))
     }
 
-    fn handle_query_peer_density(
-        &mut self,
+    fn query_peer_density(
+        &self,
         space: Arc<KitsuneSpace>,
         dht_arc: kitsune_p2p_types::dht_arc::DhtArc,
     ) -> KitsuneP2pEventHandlerResult<kitsune_p2p_types::dht::PeerView> {
         Ok(self.host_api.legacy.query_peer_density(space, dht_arc))
     }
 
-    fn handle_call(
-        &mut self,
+    fn call(
+        &self,
         space: Arc<KitsuneSpace>,
         to_agent: Arc<KitsuneAgent>,
         payload: Vec<u8>,
@@ -1018,8 +1043,8 @@ impl KitsuneP2pEventHandler for KitsuneP2pActor {
         Ok(self.host_api.legacy.call(space, to_agent, payload))
     }
 
-    fn handle_notify(
-        &mut self,
+    fn notify(
+        &self,
         space: Arc<KitsuneSpace>,
         to_agent: Arc<KitsuneAgent>,
         payload: Vec<u8>,
@@ -1027,8 +1052,8 @@ impl KitsuneP2pEventHandler for KitsuneP2pActor {
         Ok(self.host_api.legacy.notify(space, to_agent, payload))
     }
 
-    fn handle_receive_ops(
-        &mut self,
+    fn receive_ops(
+        &self,
         space: Arc<KitsuneSpace>,
         ops: Vec<KOp>,
         context: Option<FetchContext>,
@@ -1036,22 +1061,22 @@ impl KitsuneP2pEventHandler for KitsuneP2pActor {
         Ok(self.host_api.legacy.receive_ops(space, ops, context))
     }
 
-    fn handle_fetch_op_data(
-        &mut self,
+    fn fetch_op_data(
+        &self,
         input: FetchOpDataEvt,
     ) -> KitsuneP2pEventHandlerResult<Vec<(Arc<KitsuneOpHash>, KOp)>> {
         Ok(self.host_api.legacy.fetch_op_data(input))
     }
 
-    fn handle_query_op_hashes(
-        &mut self,
+    fn query_op_hashes(
+        &self,
         input: QueryOpHashesEvt,
     ) -> KitsuneP2pEventHandlerResult<Option<(Vec<Arc<KitsuneOpHash>>, TimeWindowInclusive)>> {
         Ok(self.host_api.legacy.query_op_hashes(input))
     }
 
-    fn handle_sign_network_data(
-        &mut self,
+    fn sign_network_data(
+        &self,
         input: SignNetworkDataEvt,
     ) -> KitsuneP2pEventHandlerResult<KitsuneSignature> {
         Ok(self.host_api.legacy.sign_network_data(input))
@@ -1061,15 +1086,15 @@ impl KitsuneP2pEventHandler for KitsuneP2pActor {
 impl ghost_actor::GhostHandler<KitsuneP2p> for KitsuneP2pActor {}
 
 impl KitsuneP2pHandler for KitsuneP2pActor {
-    fn handle_list_transport_bindings(&mut self) -> KitsuneP2pHandlerResult<Vec<url2::Url2>> {
+    fn list_transport_bindings(&self) -> KitsuneP2pHandlerResult<Vec<url2::Url2>> {
         let this_addr = self.ep_hnd.local_addr();
         Ok(async move { Ok(vec![url2::Url2::parse(this_addr?)]) }
             .boxed()
             .into())
     }
 
-    fn handle_join(
-        &mut self,
+    fn join(
+        &self,
         space: Arc<KitsuneSpace>,
         agent: Arc<KitsuneAgent>,
         maybe_agent_info: Option<AgentInfoSigned>,
@@ -1087,25 +1112,17 @@ impl KitsuneP2pHandler for KitsuneP2pActor {
 
         let space_sender = match self.spaces.entry(space.clone()) {
             Entry::Occupied(entry) => entry.into_mut(),
-            Entry::Vacant(entry) => entry.insert(AsyncLazy::new(async move {
-                let (send, send_inner, evt_recv) = spawn_space(
-                    space2,
-                    ep_hnd,
-                    host,
-                    config,
-                    bootstrap_net,
-                    bandwidth_throttles,
-                    parallel_notify_permit,
-                    fetch_pool,
-                )
-                .await
-                .expect("cannot fail to create space");
-                internal_sender
-                    .register_space_event_handler(evt_recv)
-                    .await
-                    .expect("FAIL");
-                (send, send_inner)
-            })),
+            Entry::Vacant(entry) => entry.insert(Space::new(
+                space,
+                i_s.clone(),
+                host,
+                ep_hnd,
+                config,
+                bootstrap_net,
+                bandwidth_throttles,
+                parallel_notify_permit,
+                fetch_pool,
+            )),
         };
         let space_sender = space_sender.get();
         Ok(async move {
@@ -1118,12 +1135,12 @@ impl KitsuneP2pHandler for KitsuneP2pActor {
         .into())
     }
 
-    fn handle_leave(
-        &mut self,
+    fn leave(
+        &self,
         space: Arc<KitsuneSpace>,
         agent: Arc<KitsuneAgent>,
     ) -> KitsuneP2pHandlerResult<()> {
-        let space_sender = match self.spaces.get_mut(&space) {
+        let space_sender = match self.get_space(&space)? {
             None => return unit_ok_fut(),
             Some(space) => space.get(),
         };
@@ -1136,14 +1153,14 @@ impl KitsuneP2pHandler for KitsuneP2pActor {
         .into())
     }
 
-    fn handle_rpc_single(
-        &mut self,
+    fn rpc_single(
+        &self,
         space: Arc<KitsuneSpace>,
         to_agent: Arc<KitsuneAgent>,
         payload: Vec<u8>,
         timeout_ms: Option<u64>,
     ) -> KitsuneP2pHandlerResult<Vec<u8>> {
-        let space_sender = match self.spaces.get_mut(&space) {
+        let space_sender = match self.get_space(&space)? {
             None => return Err(KitsuneP2pError::RoutingSpaceError(space)),
             Some(space) => space.get(),
         };
@@ -1158,8 +1175,8 @@ impl KitsuneP2pHandler for KitsuneP2pActor {
     }
 
     #[tracing::instrument(skip(self, input))]
-    fn handle_rpc_multi(
-        &mut self,
+    fn rpc_multi(
+        &self,
         input: actor::RpcMulti,
     ) -> KitsuneP2pHandlerResult<Vec<actor::RpcMultiResponse>> {
         let space_sender = match self.spaces.get_mut(&input.space) {
@@ -1174,14 +1191,14 @@ impl KitsuneP2pHandler for KitsuneP2pActor {
         .into())
     }
 
-    fn handle_broadcast(
-        &mut self,
+    fn broadcast(
+        &self,
         space: Arc<KitsuneSpace>,
         basis: Arc<KitsuneBasis>,
         timeout: KitsuneTimeout,
         data: BroadcastData,
     ) -> KitsuneP2pHandlerResult<()> {
-        let space_sender = match self.spaces.get_mut(&space) {
+        let space_sender = match self.get_space(&space)? {
             None => return Err(KitsuneP2pError::RoutingSpaceError(space)),
             Some(space) => space.get(),
         };
@@ -1193,15 +1210,15 @@ impl KitsuneP2pHandler for KitsuneP2pActor {
         .into())
     }
 
-    fn handle_targeted_broadcast(
-        &mut self,
+    fn targeted_broadcast(
+        &self,
         space: Arc<KitsuneSpace>,
         agents: Vec<Arc<KitsuneAgent>>,
         timeout: KitsuneTimeout,
         payload: Vec<u8>,
         drop_at_limit: bool,
     ) -> KitsuneP2pHandlerResult<()> {
-        let space_sender = match self.spaces.get_mut(&space) {
+        let space_sender = match self.get_space(&space)? {
             None => return Err(KitsuneP2pError::RoutingSpaceError(space)),
             Some(space) => space.get(),
         };
@@ -1215,11 +1232,8 @@ impl KitsuneP2pHandler for KitsuneP2pActor {
         .into())
     }
 
-    fn handle_new_integrated_data(
-        &mut self,
-        space: Arc<KitsuneSpace>,
-    ) -> KitsuneP2pHandlerResult<()> {
-        let space_sender = match self.spaces.get_mut(&space) {
+    fn new_integrated_data(&self, space: Arc<KitsuneSpace>) -> KitsuneP2pHandlerResult<()> {
+        let space_sender = match self.get_space(&space)? {
             None => return unit_ok_fut(),
             Some(space) => space.get(),
         };
@@ -1232,12 +1246,12 @@ impl KitsuneP2pHandler for KitsuneP2pActor {
         .into())
     }
 
-    fn handle_authority_for_hash(
-        &mut self,
+    fn authority_for_hash(
+        &self,
         space: Arc<KitsuneSpace>,
         basis: Arc<KitsuneBasis>,
     ) -> KitsuneP2pHandlerResult<bool> {
-        let space_sender = match self.spaces.get_mut(&space) {
+        let space_sender = match self.get_space(&space)? {
             None => return Err(KitsuneP2pError::RoutingSpaceError(space)),
             Some(space) => space.get(),
         };
@@ -1249,8 +1263,8 @@ impl KitsuneP2pHandler for KitsuneP2pActor {
         .into())
     }
 
-    fn handle_dump_network_metrics(
-        &mut self,
+    fn dump_network_metrics(
+        &self,
         space: Option<Arc<KitsuneSpace>>,
     ) -> KitsuneP2pHandlerResult<serde_json::Value> {
         let spaces = self
@@ -1282,17 +1296,17 @@ impl KitsuneP2pHandler for KitsuneP2pActor {
         Ok(results)
     }
 
-    fn handle_dump_network_stats(&mut self) -> KitsuneP2pHandlerResult<serde_json::Value> {
+    fn dump_network_stats(&self) -> KitsuneP2pHandlerResult<serde_json::Value> {
         let fut = self.ep_hnd.dump_network_stats();
         Ok(async move { Ok(fut.await?) }.boxed().into())
     }
 
-    fn handle_get_diagnostics(
-        &mut self,
+    fn get_diagnostics(
+        &self,
         space: KSpace,
         // gossip_type: GossipModuleType,
     ) -> KitsuneP2pHandlerResult<KitsuneDiagnostics> {
-        let space_sender = match self.spaces.get_mut(&space) {
+        let space_sender = match self.get_space(&space)? {
             None => return Err(KitsuneP2pError::RoutingSpaceError(space)),
             Some(space) => space.get(),
         };
@@ -1312,55 +1326,55 @@ mockall::mock! {
 
     impl KitsuneP2pEventHandler for KitsuneP2pEventHandler {
 
-        fn handle_put_agent_info_signed(
-            &mut self,
+        fn put_agent_info_signed(
+            &self,
             input: crate::event::PutAgentInfoSignedEvt,
         ) -> KitsuneP2pEventHandlerResult<()>;
 
-        fn handle_query_agents(
-            &mut self,
+        fn query_agents(
+            &self,
             input: crate::event::QueryAgentsEvt,
         ) -> KitsuneP2pEventHandlerResult<Vec<crate::types::agent_store::AgentInfoSigned>>;
 
-        fn handle_query_peer_density(
-            &mut self,
+        fn query_peer_density(
+            &self,
             space: Arc<KitsuneSpace>,
             dht_arc: kitsune_p2p_types::dht_arc::DhtArc,
         ) -> KitsuneP2pEventHandlerResult<kitsune_p2p_types::dht::PeerView>;
 
-        fn handle_call(
-            &mut self,
+        fn call(
+            &self,
             space: Arc<KitsuneSpace>,
             to_agent: Arc<KitsuneAgent>,
             payload: Vec<u8>,
         ) -> KitsuneP2pEventHandlerResult<Vec<u8>>;
 
-        fn handle_notify(
-            &mut self,
+        fn notify(
+            &self,
             space: Arc<KitsuneSpace>,
             to_agent: Arc<KitsuneAgent>,
             payload: Vec<u8>,
         ) -> KitsuneP2pEventHandlerResult<()> ;
 
-        fn handle_receive_ops(
-            &mut self,
+        fn receive_ops(
+            &self,
             space: Arc<KitsuneSpace>,
             ops: Vec<KOp>,
             context: Option<FetchContext>,
         ) -> KitsuneP2pEventHandlerResult<()>;
 
-        fn handle_query_op_hashes(
-            &mut self,
+        fn query_op_hashes(
+            &self,
             input: QueryOpHashesEvt,
         ) -> KitsuneP2pEventHandlerResult<Option<(Vec<Arc<KitsuneOpHash>>, TimeWindowInclusive)>>;
 
-        fn handle_fetch_op_data(
-            &mut self,
+        fn fetch_op_data(
+            &self,
             input: FetchOpDataEvt,
         ) -> KitsuneP2pEventHandlerResult<Vec<(Arc<KitsuneOpHash>, KOp)>> ;
 
-        fn handle_sign_network_data(
-            &mut self,
+        fn sign_network_data(
+            &self,
             input: SignNetworkDataEvt,
         ) -> KitsuneP2pEventHandlerResult<KitsuneSignature> ;
 

@@ -15,7 +15,7 @@ use kitsune_p2p_types::{
     KOpData, KOpHash,
 };
 
-use crate::event::{GetAgentInfoSignedEvt, MetricRecord};
+use crate::event::{GetAgentInfoSignedEvt, KitsuneP2pEventHandler, MetricRecord};
 
 /// A boxed future result with dynamic error type
 pub type KitsuneHostResult<'a, T> =
@@ -129,7 +129,7 @@ pub struct HostApiLegacy {
     #[deref]
     pub api: HostApi,
     /// The old ghost_actor sender based API
-    pub legacy: futures::channel::mpsc::Sender<crate::event::KitsuneP2pEvent>,
+    pub legacy: std::sync::Arc<dyn KitsuneP2pEventHandler>,
 }
 
 // Test-only stub which mostly panics

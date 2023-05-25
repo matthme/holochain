@@ -1,6 +1,7 @@
 //! Definitions for events emited from the KitsuneP2p actor.
 
 use crate::types::agent_store::AgentInfoSigned;
+use crate::types::KitsuneP2pHandlerResult;
 use kitsune_p2p_timestamp::Timestamp;
 use kitsune_p2p_types::{
     bin_types::KOp,
@@ -236,45 +237,64 @@ type Payload = Vec<u8>;
 type Ops = Vec<KOp>;
 type MaybeContext = Option<kitsune_p2p_fetch::FetchContext>;
 
-ghost_actor::ghost_chan! {
-    /// The KitsuneP2pEvent stream allows handling events generated from the
-    /// KitsuneP2p actor.
-    pub chan KitsuneP2pEvent<super::KitsuneP2pError> {
+pub trait KitsuneP2pEventHandler: 'static + Send + Sync {
+    /// We need to store signed agent info.
+    fn put_agent_info_signed(&self, input: PutAgentInfoSignedEvt) -> KitsuneP2pHandlerResult<()>;
 
-        /// We need to store signed agent info.
-        fn put_agent_info_signed(input: PutAgentInfoSignedEvt) -> ();
+    /// We need to get previously stored agent info.
+    fn query_agents(
+        &self,
+        input: QueryAgentsEvt,
+    ) -> KitsuneP2pHandlerResult<Vec<crate::types::agent_store::AgentInfoSigned>>;
 
-        /// We need to get previously stored agent info.
-        fn query_agents(input: QueryAgentsEvt) -> Vec<crate::types::agent_store::AgentInfoSigned>;
+    /// Query the peer density of a space for a given [`DhtArc`].
+    fn query_peer_density(
+        &self,
+        space: KSpace,
+        dht_arc: kitsune_p2p_types::dht_arc::DhtArc,
+    ) -> KitsuneP2pHandlerResult<kitsune_p2p_types::dht::PeerView>;
 
-        /// Query the peer density of a space for a given [`DhtArc`].
-        fn query_peer_density(space: KSpace, dht_arc: kitsune_p2p_types::dht_arc::DhtArc) -> kitsune_p2p_types::dht::PeerView;
+    /// We are receiving a request from a remote node.
+    fn call(
+        &self,
+        space: KSpace,
+        to_agent: KAgent,
+        payload: Payload,
+    ) -> KitsuneP2pHandlerResult<Vec<u8>>;
 
-        /// We are receiving a request from a remote node.
-        fn call(space: KSpace, to_agent: KAgent, payload: Payload) -> Vec<u8>;
+    /// We are receiving a notification from a remote node.
+    fn notify(
+        &self,
+        space: KSpace,
+        to_agent: KAgent,
+        payload: Payload,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-        /// We are receiving a notification from a remote node.
-        fn notify(space: KSpace, to_agent: KAgent, payload: Payload) -> ();
+    /// We have received ops to be integrated,
+    /// either through gossip or publish.
+    fn receive_ops(
+        &self,
+        space: KSpace,
+        ops: Ops,
+        context: MaybeContext,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-        /// We have received ops to be integrated,
-        /// either through gossip or publish.
-        fn receive_ops(
-            space: KSpace,
-            ops: Ops,
-            context: MaybeContext,
-        ) -> ();
+    /// Gather a list of op-hashes from our implementor that meet criteria.
+    /// Get the oldest and newest times for ops within a time window and max number of ops.
+    // maackle: do we really need to *individually* wrap all these op hashes in Arcs?
+    fn query_op_hashes(
+        &self,
+        input: QueryOpHashesEvt,
+    ) -> KitsuneP2pHandlerResult<Option<(Vec<KOpHash>, TimeWindowInclusive)>>;
 
-        /// Gather a list of op-hashes from our implementor that meet criteria.
-        /// Get the oldest and newest times for ops within a time window and max number of ops.
-        // maackle: do we really need to *individually* wrap all these op hashes in Arcs?
-        fn query_op_hashes(input: QueryOpHashesEvt) -> Option<(Vec<KOpHash>, TimeWindowInclusive)>;
+    /// Gather all op-hash data for a list of op-hashes from our implementor.
+    fn fetch_op_data(&self, input: FetchOpDataEvt) -> KitsuneP2pHandlerResult<Vec<(KOpHash, KOp)>>;
 
-        /// Gather all op-hash data for a list of op-hashes from our implementor.
-        fn fetch_op_data(input: FetchOpDataEvt) -> Vec<(KOpHash, KOp)>;
-
-        /// Request that our implementor sign some data on behalf of an agent.
-        fn sign_network_data(input: SignNetworkDataEvt) -> super::KitsuneSignature;
-    }
+    /// Request that our implementor sign some data on behalf of an agent.
+    fn sign_network_data(
+        &self,
+        input: SignNetworkDataEvt,
+    ) -> KitsuneP2pHandlerResult<super::KitsuneSignature>;
 }
 
 /// Receiver type for incoming connection events.

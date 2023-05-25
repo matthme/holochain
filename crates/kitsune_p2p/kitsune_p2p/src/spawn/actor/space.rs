@@ -32,137 +32,105 @@ type Payload = Box<[u8]>;
 type OpHashList = Vec<OpHashSized>;
 type MaybeDelegate = Option<(KBasis, u32, u32)>;
 
-ghost_actor::ghost_chan! {
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) chan SpaceInternal<crate::KitsuneP2pError> {
-        /// List online agents that claim to be covering a basis hash
-        fn list_online_agents_for_basis_hash(space: KSpace, from_agent: KAgent, basis: KBasis) -> HashSet<KAgent>;
-
-        /// Update / publish our agent info
-        fn update_agent_info() -> ();
-
-        /// Update / publish a single agent info
-        fn update_single_agent_info(agent: KAgent) -> ();
-
-        /// Update / publish a single agent info
-        fn publish_agent_info_signed(input: PutAgentInfoSignedEvt) -> ();
-
-        fn get_all_local_joined_agent_infos() -> Vec<AgentInfoSigned>;
-
-        /// see if an agent is locally joined
-        fn is_agent_local(agent: KAgent) -> bool;
-
-        /// Update the arc of a local agent.
-        fn update_agent_arc(agent: KAgent, arc: DhtArc) -> ();
-
-        /// Incoming Delegate Broadcast
-        /// We are being requested to delegate a broadcast to our neighborhood
-        /// on behalf of an author. `mod_idx` / `mod_cnt` inform us which
-        /// neighbors we are responsible for.
-        /// (See comments in actual method impl for more detail.)
-        fn incoming_delegate_broadcast(
-            space: KSpace,
-            basis: KBasis,
-            to_agent: KAgent,
-            mod_idx: u32,
-            mod_cnt: u32,
-            data: BroadcastData,
-        ) -> ();
-
-        /// This should be invoked instead of incoming_delegate_broadcast
-        /// in the case of a publish data variant. It will, in turn, call
-        /// into incoming_delegate_broadcast once we have the data to act
-        /// as a fetch responder for the op data.
-        fn incoming_publish(
-            space: KSpace,
-            to_agent: KAgent,
-            source: KAgent,
-            op_hash_list: OpHashList,
-            context: kitsune_p2p_fetch::FetchContext,
-            maybe_delegate: MaybeDelegate,
-        ) -> ();
-
-        /// Send a raw notify.
-        fn notify(
-            to_agent: KAgent,
-            data: wire::Wire,
-        ) -> ();
-
-        /// We just received data for an op_hash. Check if we had a pending
-        /// delegation action we need to continue now that we have the data.
-        fn resolve_publish_pending_delegates(space: KSpace, op_hash: KOpHash) -> ();
-
-        /// Incoming Gossip
-        fn incoming_gossip(space: KSpace, con: MetaNetCon, remote_url: String, data: Payload, module_type: crate::types::gossip::GossipModuleType) -> ();
-
-        /// Incoming Metric Exchange
-        fn incoming_metric_exchange(space: KSpace, msgs: VecMXM) -> ();
-
-        /// New Con
-        fn new_con(url: String, con: WireConHnd) -> ();
-
-        /// Del Con
-        fn del_con(url: String) -> ();
-    }
-}
-
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn spawn_space(
-    space: Arc<KitsuneSpace>,
-    ep_hnd: MetaNet,
-    host: HostApi,
-    config: Arc<KitsuneP2pConfig>,
-    bootstrap_net: BootstrapNet,
-    bandwidth_throttles: BandwidthThrottles,
-    parallel_notify_permit: Arc<tokio::sync::Semaphore>,
-    fetch_pool: FetchPool,
-) -> KitsuneP2pResult<(
-    ghost_actor::GhostSender<KitsuneP2p>,
-    ghost_actor::GhostSender<SpaceInternal>,
-    KitsuneP2pEventReceiver,
-)> {
-    let (evt_send, evt_recv) = futures::channel::mpsc::channel(10);
+pub(crate) trait SpaceInternalHandler {
+    /// List online agents that claim to be covering a basis hash
+    fn list_online_agents_for_basis_hash(
+        &self,
+        space: KSpace,
+        from_agent: KAgent,
+        basis: KBasis,
+    ) -> KitsuneP2pHandlerResult<HashSet<KAgent>>;
 
-    let builder = ghost_actor::actor_builder::GhostActorBuilder::new();
+    /// Update / publish our agent info
+    fn update_agent_info(&self) -> KitsuneP2pHandlerResult<()>;
 
-    let i_s = builder
-        .channel_factory()
-        .create_channel::<SpaceInternal>()
-        .await?;
+    /// Update / publish a single agent info
+    fn update_single_agent_info(&self, agent: KAgent) -> KitsuneP2pHandlerResult<()>;
 
-    let sender = builder
-        .channel_factory()
-        .create_channel::<KitsuneP2p>()
-        .await?;
+    /// Update / publish a single agent info
+    fn publish_agent_info_signed(
+        &self,
+        input: PutAgentInfoSignedEvt,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-    let host = HostApiLegacy::new(host, evt_send);
+    fn get_all_local_joined_agent_infos(&self) -> KitsuneP2pHandlerResult<Vec<AgentInfoSigned>>;
 
-    tokio::task::spawn(builder.spawn(Space::new(
-        space,
-        i_s.clone(),
-        host,
-        ep_hnd,
-        config,
-        bootstrap_net,
-        bandwidth_throttles,
-        parallel_notify_permit,
-        fetch_pool,
-    )));
+    /// see if an agent is locally joined
+    fn is_agent_local(&self, agent: KAgent) -> KitsuneP2pHandlerResult<bool>;
 
-    Ok((sender, i_s, evt_recv))
+    /// Update the arc of a local agent.
+    fn update_agent_arc(&self, agent: KAgent, arc: DhtArc) -> KitsuneP2pHandlerResult<()>;
+
+    /// Incoming Delegate Broadcast
+    /// We are being requested to delegate a broadcast to our neighborhood
+    /// on behalf of an author. `mod_idx` / `mod_cnt` inform us which
+    /// neighbors we are responsible for.
+    /// (See comments in actual method impl for more detail.)
+    fn incoming_delegate_broadcast(
+        &self,
+        space: KSpace,
+        basis: KBasis,
+        to_agent: KAgent,
+        mod_idx: u32,
+        mod_cnt: u32,
+        data: BroadcastData,
+    ) -> KitsuneP2pHandlerResult<()>;
+
+    /// This should be invoked instead of incoming_delegate_broadcast
+    /// in the case of a publish data variant. It will, in turn, call
+    /// into incoming_delegate_broadcast once we have the data to act
+    /// as a fetch responder for the op data.
+    fn incoming_publish(
+        &self,
+        space: KSpace,
+        to_agent: KAgent,
+        source: KAgent,
+        op_hash_list: OpHashList,
+        context: kitsune_p2p_fetch::FetchContext,
+        maybe_delegate: MaybeDelegate,
+    ) -> KitsuneP2pHandlerResult<()>;
+
+    /// Send a raw notify.
+    fn notify(&self, to_agent: KAgent, data: wire::Wire) -> KitsuneP2pHandlerResult<()>;
+
+    /// We just received data for an op_hash. Check if we had a pending
+    /// delegation action we need to continue now that we have the data.
+    fn resolve_publish_pending_delegates(
+        &self,
+        space: KSpace,
+        op_hash: KOpHash,
+    ) -> KitsuneP2pHandlerResult<()>;
+
+    /// Incoming Gossip
+    fn incoming_gossip(
+        &self,
+        space: KSpace,
+        con: MetaNetCon,
+        remote_url: String,
+        data: Payload,
+        module_type: crate::types::gossip::GossipModuleType,
+    ) -> KitsuneP2pHandlerResult<()>;
+
+    /// Incoming Metric Exchange
+    fn incoming_metric_exchange(&self, space: KSpace, msgs: VecMXM) -> KitsuneP2pHandlerResult<()>;
+
+    /// New Con
+    fn new_con(&self, url: String, con: WireConHnd) -> KitsuneP2pHandlerResult<()>;
+
+    /// Del Con
+    fn del_con(&self, url: String) -> KitsuneP2pHandlerResult<()>;
 }
 
-impl ghost_actor::GhostHandler<SpaceInternal> for Space {}
-
-impl SpaceInternalHandler for Space {
-    fn handle_list_online_agents_for_basis_hash(
-        &mut self,
+impl Space {
+    pub(crate) fn list_online_agents_for_basis_hash(
+        &self,
         _space: Arc<KitsuneSpace>,
         _from_agent: Arc<KitsuneAgent>,
         // during short-circuit / full-sync mode,
         // we're ignoring the basis_hash and just returning everyone.
         _basis: Arc<KitsuneBasis>,
-    ) -> SpaceInternalHandlerResult<HashSet<Arc<KitsuneAgent>>> {
+    ) -> SpaceKitsuneP2pHandlerResult<HashSet<Arc<KitsuneAgent>>> {
         let mut res: HashSet<Arc<KitsuneAgent>> =
             self.local_joined_agents.keys().cloned().collect();
         let all_peers_fut = self
@@ -179,7 +147,7 @@ impl SpaceInternalHandler for Space {
         .into())
     }
 
-    fn handle_update_agent_info(&mut self) -> SpaceInternalHandlerResult<()> {
+    pub(crate) fn update_agent_info(&self) -> SpaceKitsuneP2pHandlerResult<()> {
         let space = self.space.clone();
         let mut mdns_handles = self.mdns_handles.clone();
         let network_type = self.config.network_type.clone();
@@ -227,10 +195,10 @@ impl SpaceInternalHandler for Space {
         .into())
     }
 
-    fn handle_update_single_agent_info(
-        &mut self,
+    pub(crate) fn update_single_agent_info(
+        &self,
         agent: Arc<KitsuneAgent>,
-    ) -> SpaceInternalHandlerResult<()> {
+    ) -> SpaceKitsuneP2pHandlerResult<()> {
         let space = self.space.clone();
         let bootstrap_net = self.ro_inner.bootstrap_net;
         let mut mdns_handles = self.mdns_handles.clone();
@@ -272,16 +240,16 @@ impl SpaceInternalHandler for Space {
         .into())
     }
 
-    fn handle_publish_agent_info_signed(
-        &mut self,
+    pub(crate) fn publish_agent_info_signed(
+        &self,
         input: PutAgentInfoSignedEvt,
-    ) -> SpaceInternalHandlerResult<()> {
+    ) -> SpaceKitsuneP2pHandlerResult<()> {
         let timeout = self.config.tuning_params.implicit_timeout();
         let tasks: Result<Vec<_>, _> = input
             .peer_data
             .iter()
             .map(|agent_info| {
-                self.handle_broadcast(
+                self.broadcast(
                     self.space.clone(),
                     Arc::new(KitsuneBasis::new(agent_info.agent.0.clone())),
                     timeout,
@@ -308,9 +276,9 @@ impl SpaceInternalHandler for Space {
         .into())
     }
 
-    fn handle_get_all_local_joined_agent_infos(
-        &mut self,
-    ) -> SpaceInternalHandlerResult<Vec<AgentInfoSigned>> {
+    pub(crate) fn get_all_local_joined_agent_infos(
+        &self,
+    ) -> SpaceKitsuneP2pHandlerResult<Vec<AgentInfoSigned>> {
         let agent_infos: Vec<AgentInfoSigned> = self
             .local_joined_agents
             .values()
@@ -322,33 +290,33 @@ impl SpaceInternalHandler for Space {
         Ok(async move { Ok(agent_infos) }.boxed().into())
     }
 
-    fn handle_is_agent_local(
-        &mut self,
+    pub(crate) fn is_agent_local(
+        &self,
         agent: Arc<KitsuneAgent>,
-    ) -> SpaceInternalHandlerResult<bool> {
+    ) -> SpaceKitsuneP2pHandlerResult<bool> {
         let res = self.local_joined_agents.contains_key(&agent);
         Ok(async move { Ok(res) }.boxed().into())
     }
 
-    fn handle_update_agent_arc(
-        &mut self,
+    pub(crate) fn update_agent_arc(
+        &self,
         agent: Arc<KitsuneAgent>,
         arc: DhtArc,
-    ) -> SpaceInternalHandlerResult<()> {
+    ) -> SpaceKitsuneP2pHandlerResult<()> {
         self.agent_arcs.insert(agent, arc);
         self.update_metric_exchange_arcset();
         Ok(async move { Ok(()) }.boxed().into())
     }
 
-    fn handle_incoming_delegate_broadcast(
-        &mut self,
+    pub(crate) fn incoming_delegate_broadcast(
+        &self,
         space: Arc<KitsuneSpace>,
         basis: Arc<KitsuneBasis>,
         _to_agent: Arc<KitsuneAgent>,
         mod_idx: u32,
         mod_cnt: u32,
         data: BroadcastData,
-    ) -> InternalHandlerResult<()> {
+    ) -> KitsuneP2pHandlerResult<()> {
         // first, forward this incoming broadcast to all connected
         // local agents.
         let mut local_notify_events = Vec::new();
@@ -454,15 +422,15 @@ impl SpaceInternalHandler for Space {
         .into())
     }
 
-    fn handle_incoming_publish(
-        &mut self,
+    pub(crate) fn incoming_publish(
+        &self,
         space: KSpace,
         to_agent: KAgent,
         source: KAgent,
         op_hash_list: OpHashList,
         context: kitsune_p2p_fetch::FetchContext,
         maybe_delegate: MaybeDelegate,
-    ) -> InternalHandlerResult<()> {
+    ) -> KitsuneP2pHandlerResult<()> {
         let ro_inner = self.ro_inner.clone();
 
         let just_hashes = op_hash_list.iter().map(|s| s.data()).collect();
@@ -541,7 +509,7 @@ impl SpaceInternalHandler for Space {
         .into())
     }
 
-    fn handle_notify(&mut self, to_agent: KAgent, data: wire::Wire) -> InternalHandlerResult<()> {
+    pub(crate) fn notify(&self, to_agent: KAgent, data: wire::Wire) -> KitsuneP2pHandlerResult<()> {
         let ro_inner = self.ro_inner.clone();
         let timeout = ro_inner.config.tuning_params.implicit_timeout();
 
@@ -572,24 +540,24 @@ impl SpaceInternalHandler for Space {
         .into())
     }
 
-    fn handle_resolve_publish_pending_delegates(
-        &mut self,
+    pub(crate) fn resolve_publish_pending_delegates(
+        &self,
         _space: KSpace,
         op_hash: KOpHash,
-    ) -> InternalHandlerResult<()> {
+    ) -> KitsuneP2pHandlerResult<()> {
         self.ro_inner.resolve_publish_pending_delegate(op_hash);
 
         unit_ok_fut()
     }
 
-    fn handle_incoming_gossip(
-        &mut self,
+    pub(crate) fn incoming_gossip(
+        &self,
         _space: Arc<KitsuneSpace>,
         con: MetaNetCon,
         remote_url: String,
         data: Box<[u8]>,
         module_type: GossipModuleType,
-    ) -> InternalHandlerResult<()> {
+    ) -> KitsuneP2pHandlerResult<()> {
         match self.gossip_mod.get(&module_type) {
             Some(module) => module.incoming_gossip(con, remote_url, data)?,
             None => tracing::warn!(
@@ -600,21 +568,21 @@ impl SpaceInternalHandler for Space {
         unit_ok_fut()
     }
 
-    fn handle_incoming_metric_exchange(
-        &mut self,
+    pub(crate) fn incoming_metric_exchange(
+        &self,
         _space: Arc<KitsuneSpace>,
         msgs: Vec<MetricExchangeMsg>,
-    ) -> InternalHandlerResult<()> {
+    ) -> KitsuneP2pHandlerResult<()> {
         self.ro_inner.metric_exchange.write().ingest_msgs(msgs);
         unit_ok_fut()
     }
 
-    fn handle_new_con(&mut self, url: String, con: MetaNetCon) -> InternalHandlerResult<()> {
+    pub(crate) fn new_con(&self, url: String, con: MetaNetCon) -> KitsuneP2pHandlerResult<()> {
         self.ro_inner.metric_exchange.write().new_con(url, con);
         unit_ok_fut()
     }
 
-    fn handle_del_con(&mut self, url: String) -> InternalHandlerResult<()> {
+    pub(crate) fn del_con(&self, url: String) -> KitsuneP2pHandlerResult<()> {
         self.ro_inner.metric_exchange.write().del_con(url);
         unit_ok_fut()
     }
@@ -753,7 +721,7 @@ async fn update_single_agent_info(
 
 use ghost_actor::dependencies::must_future::MustBoxFuture;
 impl ghost_actor::GhostControlHandler for Space {
-    fn handle_ghost_actor_shutdown(mut self) -> MustBoxFuture<'static, ()> {
+    fn ghost_actor_shutdown(mut self) -> MustBoxFuture<'static, ()> {
         async move {
             // The line below was added when migrating to rust edition 2021, per
             // https://doc.rust-lang.org/edition-guide/rust-2021/disjoint-capture-in-closures.html#migration
@@ -775,20 +743,20 @@ impl ghost_actor::GhostControlHandler for Space {
 impl ghost_actor::GhostHandler<KitsuneP2p> for Space {}
 
 impl KitsuneP2pHandler for Space {
-    fn handle_list_transport_bindings(&mut self) -> KitsuneP2pHandlerResult<Vec<url2::Url2>> {
+    fn list_transport_bindings(&self) -> KitsuneP2pHandlerResult<Vec<url2::Url2>> {
         unreachable!(
             "These requests are handled at the to actor level and are never propagated down to the space."
         )
     }
 
-    fn handle_join(
-        &mut self,
+    fn join(
+        &self,
         space: Arc<KitsuneSpace>,
         agent: Arc<KitsuneAgent>,
         maybe_agent_info: Option<AgentInfoSigned>,
         initial_arc: Option<DhtArc>,
     ) -> KitsuneP2pHandlerResult<()> {
-        tracing::debug!(?space, ?agent, ?initial_arc, "handle_join");
+        tracing::debug!(?space, ?agent, ?initial_arc, "join");
         if let Some(initial_arc) = initial_arc {
             self.agent_arcs.insert(agent.clone(), initial_arc);
         }
@@ -849,8 +817,8 @@ impl KitsuneP2pHandler for Space {
         Ok(async move { fut.await }.boxed().into())
     }
 
-    fn handle_leave(
-        &mut self,
+    fn leave(
+        &self,
         _space: Arc<KitsuneSpace>,
         agent: Arc<KitsuneAgent>,
     ) -> KitsuneP2pHandlerResult<()> {
@@ -863,8 +831,8 @@ impl KitsuneP2pHandler for Space {
         self.publish_leave_agent_info(agent)
     }
 
-    fn handle_rpc_single(
-        &mut self,
+    fn rpc_single(
+        &self,
         space: Arc<KitsuneSpace>,
         to_agent: Arc<KitsuneAgent>,
         payload: Vec<u8>,
@@ -932,8 +900,8 @@ impl KitsuneP2pHandler for Space {
         .into())
     }
 
-    fn handle_rpc_multi(
-        &mut self,
+    fn rpc_multi(
+        &self,
         input: actor::RpcMulti,
     ) -> KitsuneP2pHandlerResult<Vec<actor::RpcMultiResponse>> {
         let local_joined_agents = self.local_joined_agents.keys().cloned().collect();
@@ -942,8 +910,8 @@ impl KitsuneP2pHandler for Space {
         Ok(async move { fut.await }.boxed().into())
     }
 
-    fn handle_broadcast(
-        &mut self,
+    fn broadcast(
+        &self,
         space: Arc<KitsuneSpace>,
         basis: Arc<KitsuneBasis>,
         timeout: KitsuneTimeout,
@@ -1101,8 +1069,8 @@ impl KitsuneP2pHandler for Space {
         .into())
     }
 
-    fn handle_targeted_broadcast(
-        &mut self,
+    fn targeted_broadcast(
+        &self,
         space: Arc<KitsuneSpace>,
         agents: Vec<Arc<KitsuneAgent>>,
         timeout: KitsuneTimeout,
@@ -1195,15 +1163,15 @@ impl KitsuneP2pHandler for Space {
         .into())
     }
 
-    fn handle_new_integrated_data(&mut self, _: KSpace) -> InternalHandlerResult<()> {
+    fn new_integrated_data(&self, _: KSpace) -> KitsuneP2pHandlerResult<()> {
         for module in self.gossip_mod.values() {
             module.new_integrated_data();
         }
         unit_ok_fut()
     }
 
-    fn handle_authority_for_hash(
-        &mut self,
+    fn authority_for_hash(
+        &self,
         _space: Arc<KitsuneSpace>,
         basis: Arc<KitsuneBasis>,
     ) -> KitsuneP2pHandlerResult<bool> {
@@ -1215,8 +1183,8 @@ impl KitsuneP2pHandler for Space {
         Ok(async move { Ok(r) }.boxed().into())
     }
 
-    fn handle_dump_network_metrics(
-        &mut self,
+    fn dump_network_metrics(
+        &self,
         _space: Option<Arc<KitsuneSpace>>,
     ) -> KitsuneP2pHandlerResult<serde_json::Value> {
         let space = self.ro_inner.space.clone();
@@ -1231,15 +1199,12 @@ impl KitsuneP2pHandler for Space {
         .into())
     }
 
-    fn handle_dump_network_stats(&mut self) -> KitsuneP2pHandlerResult<serde_json::Value> {
+    fn dump_network_stats(&self) -> KitsuneP2pHandlerResult<serde_json::Value> {
         // call handled by parent actor and never delegated to spaces
         unreachable!()
     }
 
-    fn handle_get_diagnostics(
-        &mut self,
-        _space: KSpace,
-    ) -> KitsuneP2pHandlerResult<KitsuneDiagnostics> {
+    fn get_diagnostics(&self, _space: KSpace) -> KitsuneP2pHandlerResult<KitsuneDiagnostics> {
         let diagnostics = KitsuneDiagnostics {
             metrics: self.ro_inner.metrics.clone(),
             fetch_pool: self.ro_inner.fetch_pool.clone().into(),
@@ -1321,16 +1286,22 @@ impl SpaceReadOnlyInner {
     }
 }
 
+pub(crate) struct SpaceState {
+    pub(crate) local_joined_agents: HashMap<Arc<KitsuneAgent>, Option<AgentInfoSigned>>,
+    pub(crate) agent_arcs: HashMap<Arc<KitsuneAgent>, DhtArc>,
+}
+
 /// A Kitsune P2p Node can track multiple "spaces" -- Non-interacting namespaced
 /// areas that share common transport infrastructure for communication.
+#[derive(Clone)]
 pub(crate) struct Space {
+    pub(crate) state: Share<SpaceState>,
     pub(crate) ro_inner: Arc<SpaceReadOnlyInner>,
     pub(crate) space: Arc<KitsuneSpace>,
     pub(crate) i_s: ghost_actor::GhostSender<SpaceInternal>,
     pub(crate) host_api: HostApiLegacy,
-    pub(crate) local_joined_agents: HashMap<Arc<KitsuneAgent>, Option<AgentInfoSigned>>,
-    pub(crate) agent_arcs: HashMap<Arc<KitsuneAgent>, DhtArc>,
     pub(crate) config: Arc<KitsuneP2pConfig>,
+    // TODO: put in state?
     mdns_handles: HashMap<Vec<u8>, Arc<AtomicBool>>,
     mdns_listened_spaces: HashSet<String>,
     gossip_mod: HashMap<GossipModuleType, GossipModule>,
@@ -1432,13 +1403,43 @@ impl Space {
         let i_s_c = i_s.clone();
         let agent_info_update_interval_ms =
             config.tuning_params.gossip_agent_info_update_interval_ms as u64;
+
+        let ro_inner = Arc::new(SpaceReadOnlyInner {
+            space: space.clone(),
+            i_s: i_s.clone(),
+            host_api: host_api.clone(),
+            ep_hnd,
+            config: config.clone(),
+            bootstrap_net,
+            parallel_notify_permit,
+            metrics,
+            metric_exchange,
+            publish_pending_delegates: parking_lot::Mutex::new(HashMap::new()),
+            fetch_pool,
+        });
+
+        let space = Self {
+            ro_inner,
+            space,
+            i_s,
+            host_api,
+            local_joined_agents: HashMap::new(),
+            agent_arcs: HashMap::new(),
+            config,
+            mdns_handles: HashMap::new(),
+            mdns_listened_spaces: HashSet::new(),
+            gossip_mod,
+        };
+
+        let space_c = space.clone();
+
         tokio::task::spawn(async move {
             loop {
                 tokio::time::sleep(std::time::Duration::from_millis(
                     agent_info_update_interval_ms,
                 ))
                 .await;
-                if let Err(e) = i_s_c.update_agent_info().await {
+                if let Err(e) = space_c.update_agent_info().await {
                     tracing::error!(failed_to_update_agent_info_for_space = ?e);
                 }
             }
@@ -1461,7 +1462,7 @@ impl Space {
 
                 loop {
                     use ghost_actor::GhostControlSender;
-                    if !i_s_c.ghost_actor_is_active() {
+                    if todo!("break if inactive space") {
                         break;
                     }
 
@@ -1484,13 +1485,13 @@ impl Space {
                             tracing::error!(msg = "Failed to get peers from bootstrap", ?e);
                         }
                         Ok(list) => {
-                            if !i_s_c.ghost_actor_is_active() {
+                            if todo!("break if inactive space") {
                                 break;
                             }
                             let mut peer_data = Vec::with_capacity(list.len());
                             for item in list {
                                 // TODO - someday some validation here
-                                match i_s_c.is_agent_local(item.agent.clone()).await {
+                                match space_clone.is_agent_local(item.agent.clone()).await {
                                     Err(err) => tracing::error!(?err),
                                     Ok(is_local) => {
                                         if !is_local {
@@ -1516,35 +1517,10 @@ impl Space {
             });
         }
 
-        let ro_inner = Arc::new(SpaceReadOnlyInner {
-            space: space.clone(),
-            i_s: i_s.clone(),
-            host_api: host_api.clone(),
-            ep_hnd,
-            config: config.clone(),
-            bootstrap_net,
-            parallel_notify_permit,
-            metrics,
-            metric_exchange,
-            publish_pending_delegates: parking_lot::Mutex::new(HashMap::new()),
-            fetch_pool,
-        });
-
-        Self {
-            ro_inner,
-            space,
-            i_s,
-            host_api,
-            local_joined_agents: HashMap::new(),
-            agent_arcs: HashMap::new(),
-            config,
-            mdns_handles: HashMap::new(),
-            mdns_listened_spaces: HashSet::new(),
-            gossip_mod,
-        }
+        space
     }
 
-    fn update_metric_exchange_arcset(&mut self) {
+    fn update_metric_exchange_arcset(&self) {
         let arc_set = self
             .agent_arcs
             .values()
@@ -1553,10 +1529,7 @@ impl Space {
         self.ro_inner.metric_exchange.write().update_arcset(arc_set);
     }
 
-    fn publish_leave_agent_info(
-        &mut self,
-        agent: Arc<KitsuneAgent>,
-    ) -> KitsuneP2pHandlerResult<()> {
+    fn publish_leave_agent_info(&self, agent: Arc<KitsuneAgent>) -> KitsuneP2pHandlerResult<()> {
         let space = self.space.clone();
         let network_type = self.config.network_type.clone();
         let bootstrap_net = self.ro_inner.bootstrap_net;
@@ -1628,7 +1601,7 @@ impl Space {
         // In the future we may want to do something more intelligent.
         //
         // In the case an initial_arc is passend into the join request,
-        // handle_join will initialize this agent_arcs map to that value.
+        // join will initialize this agent_arcs map to that value.
         self.agent_arcs.get(agent).cloned().unwrap_or_else(|| {
             match self.config.tuning_params.arc_clamping() {
                 Some(ArqClamping::Empty) => DhtArc::empty(agent.get_loc()),

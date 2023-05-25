@@ -3,6 +3,7 @@
 
 use crate::event::GetRequest;
 use crate::*;
+use ghost_actor::dependencies::must_future::MustBoxFuture;
 use holochain_types::activity::AgentActivityResponse;
 use kitsune_p2p::dependencies::kitsune_p2p_fetch::FetchContext;
 use kitsune_p2p::dependencies::kitsune_p2p_fetch::OpHashSized;
@@ -242,135 +243,167 @@ impl Default for GetActivityOptions {
     }
 }
 
-ghost_actor::ghost_chan! {
-    /// The HolochainP2pSender struct allows controlling the HolochainP2p
-    /// actor instance.
-    pub chan HolochainP2p<HolochainP2pError> {
-        /// The p2p module must be informed at runtime which dna/agent pairs it should be tracking.
-        fn join(dna_hash: DnaHash, agent_pub_key: AgentPubKey, maybe_agent_info: Option<AgentInfoSigned>, initial_arc: Option<crate::dht_arc::DhtArc>) -> ();
+/// Return type of HolochainP2pApi
+pub type HolochainP2pApiResult<'a, T> = MustBoxFuture<'a, Result<T, HolochainP2pError>>;
 
-        /// If a cell is disabled, we'll need to \"leave\" the network module as well.
-        fn leave(dna_hash: DnaHash, agent_pub_key: AgentPubKey) -> ();
+pub trait HolochainP2pApi: 'static + Send + Sync {
+    /// The p2p module must be informed at runtime which dna/agent pairs it should be tracking.
+    fn join(
+        &self,
+        dna_hash: DnaHash,
+        agent_pub_key: AgentPubKey,
+        maybe_agent_info: Option<AgentInfoSigned>,
+        initial_arc: Option<crate::dht_arc::DhtArc>,
+    ) -> HolochainP2pApiResult<()>;
+}
 
-        /// Invoke a zome function on a remote node (if you have been granted the capability).
-        fn call_remote(
-            dna_hash: DnaHash,
-            from_agent: AgentPubKey,
-            signature: Signature,
-            to_agent: AgentPubKey,
-            zome_name: ZomeName,
-            fn_name: FunctionName,
-            cap_secret: Option<CapSecret>,
-            payload: ExternIO,
-            nonce: Nonce256Bits,
-            expires_at: Timestamp,
-        ) -> SerializedBytes;
+/// A HostApi paired with a ghost_actor sender (legacy)
+/// When all legacy functions have been moved to the API,
+/// this type can be replaced by `HostApi`.
+#[derive(Clone, derive_more::Constructor, derive_more::Deref, derive_more::Into)]
 
-        /// Invoke a zome function on a remote node (if you have been granted the capability).
-        /// This is a fire-and-forget operation, a best effort will be made
-        /// to forward the signal, but if the conductor network is overworked
-        /// it may decide not to deliver some of the signals.
-        fn remote_signal(
-            dna_hash: DnaHash,
-            from_agent: AgentPubKey,
-            to_agent_list: Vec<(Signature, AgentPubKey)>,
-            zome_name: ZomeName,
-            fn_name: FunctionName,
-            cap: Option<CapSecret>,
-            payload: ExternIO,
-            nonce: Nonce256Bits,
-            expires_at: Timestamp,
-        ) -> ();
+pub struct HcP2pApi {
+    /// The new API
+    #[deref]
+    pub api: std::sync::Arc<dyn HolochainP2pApi>,
+    /// The old ghost actor sender-based API
+    pub legacy: futures::channel::mpsc::Sender<HolochainP2p>,
+}
 
-        /// Publish data to the correct neighborhood.
-        fn publish(
-            dna_hash: DnaHash,
-            request_validation_receipt: bool,
-            countersigning_session: bool,
-            basis_hash: holo_hash::OpBasis,
-            source: AgentPubKey,
-            op_hash_list: Vec<OpHashSized>,
-            timeout_ms: Option<u64>,
-            reflect_ops: Option<Vec<DhtOp>>,
-        ) -> ();
+pub type HolochainP2pHandlerResult<T> =
+    HolochainP2pResult<MustBoxFuture<'static, HolochainP2pResult<T>>>;
 
-        /// Publish a countersigning op.
-        fn publish_countersign(
-            dna_hash: DnaHash,
-            flag: bool,
-            basis_hash: holo_hash::OpBasis,
-            op: DhtOp,
-        ) -> ();
+/// The HolochainP2pSender struct allows controlling the HolochainP2p
+/// actor instance.
+pub trait HolochainP2pHandler {
+    /// If a cell is disabled, we'll need to \"leave\" the network module as well.
+    fn leave(dna_hash: DnaHash, agent_pub_key: AgentPubKey) -> HolochainP2pHandlerResult<()>;
 
-        /// Get an entry from the DHT.
-        fn get(
-            dna_hash: DnaHash,
-            dht_hash: holo_hash::AnyDhtHash,
-            options: GetOptions,
-        ) -> Vec<WireOps>;
+    /// Invoke a zome function on a remote node (if you have been granted the capability).
+    fn call_remote(
+        dna_hash: DnaHash,
+        from_agent: AgentPubKey,
+        signature: Signature,
+        to_agent: AgentPubKey,
+        zome_name: ZomeName,
+        fn_name: FunctionName,
+        cap_secret: Option<CapSecret>,
+        payload: ExternIO,
+        nonce: Nonce256Bits,
+        expires_at: Timestamp,
+    ) -> HolochainP2pHandlerResult<SerializedBytes>;
 
-        /// Get metadata from the DHT.
-        fn get_meta(
-            dna_hash: DnaHash,
-            dht_hash: holo_hash::AnyDhtHash,
-            options: GetMetaOptions,
-        ) -> Vec<MetadataSet>;
+    /// Invoke a zome function on a remote node (if you have been granted the capability).
+    /// This is a fire-and-forget operation, a best effort will be made
+    /// to forward the signal, but if the conductor network is overworked
+    /// it may decide not to deliver some of the signals.
+    fn remote_signal(
+        dna_hash: DnaHash,
+        from_agent: AgentPubKey,
+        to_agent_list: Vec<(Signature, AgentPubKey)>,
+        zome_name: ZomeName,
+        fn_name: FunctionName,
+        cap: Option<CapSecret>,
+        payload: ExternIO,
+        nonce: Nonce256Bits,
+        expires_at: Timestamp,
+    ) -> HolochainP2pHandlerResult<()>;
 
-        /// Get links from the DHT.
-        fn get_links(
-            dna_hash: DnaHash,
-            link_key: WireLinkKey,
-            options: GetLinksOptions,
-        ) -> Vec<WireLinkOps>;
+    /// Publish data to the correct neighborhood.
+    fn publish(
+        dna_hash: DnaHash,
+        request_validation_receipt: bool,
+        countersigning_session: bool,
+        basis_hash: holo_hash::OpBasis,
+        source: AgentPubKey,
+        op_hash_list: Vec<OpHashSized>,
+        timeout_ms: Option<u64>,
+        reflect_ops: Option<Vec<DhtOp>>,
+    ) -> HolochainP2pHandlerResult<()>;
 
-        /// Get a count of links from the DHT.
-        fn count_links(
-            dna_hash: DnaHash,
-            query: WireLinkQuery,
-        ) -> CountLinksResponse;
+    /// Get a count of links from the DHT.
+    fn count_links(dna_hash: DnaHash, query: WireLinkQuery) -> CountLinksResponse;
 
-        /// Get agent activity from the DHT.
-        fn get_agent_activity(
-            dna_hash: DnaHash,
-            agent: AgentPubKey,
-            query: ChainQueryFilter,
-            options: GetActivityOptions,
-        ) -> Vec<AgentActivityResponse<ActionHash>>;
+    /// Get agent activity from the DHT.
+    fn get_agent_activity(
+        dna_hash: DnaHash,
+        agent: AgentPubKey,
+        query: ChainQueryFilter,
+        options: GetActivityOptions,
+    ) -> Vec<AgentActivityResponse<ActionHash>>;
 
-        /// A remote node is requesting agent activity from us.
-        fn must_get_agent_activity(
-            dna_hash: DnaHash,
-            author: AgentPubKey,
-            filter: holochain_zome_types::chain::ChainFilter,
-        ) -> Vec<MustGetAgentActivityResponse>;
+    /// Publish a countersigning op.
+    fn publish_countersign(
+        dna_hash: DnaHash,
+        flag: bool,
+        basis_hash: holo_hash::OpBasis,
+        op: DhtOp,
+    ) -> HolochainP2pHandlerResult<()>;
 
-        /// Send a validation receipt to a remote node.
-        fn send_validation_receipt(dna_hash: DnaHash, to_agent: AgentPubKey, receipt: SerializedBytes) -> ();
+    /// Get an entry from the DHT.
+    fn get(
+        dna_hash: DnaHash,
+        dht_hash: holo_hash::AnyDhtHash,
+        options: GetOptions,
+    ) -> HolochainP2pHandlerResult<Vec<WireOps>>;
 
-        /// New data has been integrated and is ready for gossiping.
-        fn new_integrated_data(dna_hash: DnaHash) -> ();
+    /// Get metadata from the DHT.
+    fn get_meta(
+        dna_hash: DnaHash,
+        dht_hash: holo_hash::AnyDhtHash,
+        options: GetMetaOptions,
+    ) -> HolochainP2pHandlerResult<Vec<MetadataSet>>;
 
-        /// Check if any local agent in this space is an authority for a hash.
-        fn authority_for_hash(dna_hash: DnaHash, basis: OpBasis) -> bool;
+    /// Get links from the DHT.
+    fn get_links(
+        dna_hash: DnaHash,
+        link_key: WireLinkKey,
+        options: GetLinksOptions,
+    ) -> HolochainP2pHandlerResult<Vec<WireLinkOps>>;
 
-        /// Messages between agents negotiation a countersigning session.
-        fn countersigning_session_negotiation(
-            dna_hash: DnaHash,
-            agents: Vec<AgentPubKey>,
-            message: event::CountersigningSessionNegotiationMessage,
-        ) -> ();
+    /// Get agent activity from the DHT.
+    fn get_agent_activity(
+        dna_hash: DnaHash,
+        agent: AgentPubKey,
+        query: ChainQueryFilter,
+        options: GetActivityOptions,
+    ) -> HolochainP2pHandlerResult<Vec<AgentActivityResponse<ActionHash>>>;
 
-        /// Dump network metrics.
-        fn dump_network_metrics(
-            dna_hash: Option<DnaHash>,
-        ) -> String;
+    /// A remote node is requesting agent activity from us.
+    fn must_get_agent_activity(
+        dna_hash: DnaHash,
+        author: AgentPubKey,
+        filter: holochain_zome_types::chain::ChainFilter,
+    ) -> HolochainP2pHandlerResult<Vec<MustGetAgentActivityResponse>>;
 
-        /// Dump network stats.
-        fn dump_network_stats() -> String;
+    /// Send a validation receipt to a remote node.
+    fn send_validation_receipt(
+        dna_hash: DnaHash,
+        to_agent: AgentPubKey,
+        receipt: SerializedBytes,
+    ) -> HolochainP2pHandlerResult<()>;
 
-        /// Get struct for diagnostic data
-        fn get_diagnostics(dna_hash: DnaHash) -> KitsuneDiagnostics;
-    }
+    /// New data has been integrated and is ready for gossiping.
+    fn new_integrated_data(dna_hash: DnaHash) -> HolochainP2pHandlerResult<()>;
+
+    /// Check if any local agent in this space is an authority for a hash.
+    fn authority_for_hash(dna_hash: DnaHash, basis: OpBasis) -> HolochainP2pHandlerResult<bool>;
+
+    /// Messages between agents negotiation a countersigning session.
+    fn countersigning_session_negotiation(
+        dna_hash: DnaHash,
+        agents: Vec<AgentPubKey>,
+        message: event::CountersigningSessionNegotiationMessage,
+    ) -> HolochainP2pHandlerResult<()>;
+
+    /// Dump network metrics.
+    fn dump_network_metrics(dna_hash: Option<DnaHash>) -> HolochainP2pHandlerResult<String>;
+
+    /// Dump network stats.
+    fn dump_network_stats() -> HolochainP2pHandlerResult<String>;
+
+    /// Get struct for diagnostic data
+    fn get_diagnostics(dna_hash: DnaHash) -> HolochainP2pHandlerResult<KitsuneDiagnostics>;
 }
 
 /// Convenience type for referring to the HolochainP2p GhostSender

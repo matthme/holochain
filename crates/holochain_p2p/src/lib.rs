@@ -6,6 +6,7 @@ use holochain_serialized_bytes::prelude::*;
 use holochain_types::prelude::*;
 use kitsune_p2p::dependencies::kitsune_p2p_fetch::OpHashSized;
 use std::sync::Arc;
+use types::actor::HcP2pApi;
 
 mod types;
 pub use types::actor::FetchContextExt;
@@ -170,6 +171,7 @@ pub trait HolochainP2pDnaT: Send + Sync {
 #[derive(Clone)]
 pub struct HolochainP2pDna {
     sender: ghost_actor::GhostSender<actor::HolochainP2p>,
+    p2p_api: HcP2pApi,
     dna_hash: Arc<DnaHash>,
     chc: Option<ChcImpl>,
 }
@@ -191,7 +193,7 @@ impl HolochainP2pDnaT for HolochainP2pDna {
         maybe_agent_info: Option<AgentInfoSigned>,
         initial_arc: Option<crate::dht_arc::DhtArc>,
     ) -> actor::HolochainP2pResult<()> {
-        self.sender
+        self.p2p_api
             .join(
                 (*self.dna_hash).clone(),
                 agent,

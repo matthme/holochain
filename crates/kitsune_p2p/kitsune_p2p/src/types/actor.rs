@@ -6,6 +6,7 @@ use std::sync::Arc;
 use url2::Url2;
 
 use crate::gossip::sharded_gossip::KitsuneDiagnostics;
+use crate::KitsuneP2pHandlerResult;
 
 /// Make a request to multiple destination agents - awaiting/aggregating the responses.
 /// The remote sides will see these messages as "RequestEvt" events.
@@ -41,7 +42,7 @@ impl RpcMulti {
         space: Arc<super::KitsuneSpace>,
         basis: Arc<super::KitsuneBasis>,
         payload: Vec<u8>,
-    ) -> Self {
+    ) -> KitsuneP2pHandlerResult<Self> {
         Self {
             space,
             basis,
@@ -94,76 +95,79 @@ type Payload = Vec<u8>;
 type OptU64 = Option<u64>;
 type OptArc = Option<crate::dht_arc::DhtArc>;
 
-ghost_actor::ghost_chan! {
-    /// The KitsuneP2pSender allows async remote-control of the KitsuneP2p actor.
-    pub chan KitsuneP2p<super::KitsuneP2pError> {
-        /// Get the calculated transport bindings.
-        fn list_transport_bindings() -> Vec<Url2>;
+/// The KitsuneP2pSender allows async remote-control of the KitsuneP2p actor.
+pub trait KitsuneP2pHandler {
+    /// Get the calculated transport bindings.
+    fn list_transport_bindings() -> KitsuneP2pHandlerResult<Vec<Url2>>;
 
-        /// Announce a space/agent pair on this network.
-        fn join(space: KSpace, agent: KAgent, maybe_agent_info: Option<kitsune_p2p_types::agent_info::AgentInfoSigned>, initial_arc: OptArc) -> ();
+    /// Announce a space/agent pair on this network.
+    fn join(
+        space: KSpace,
+        agent: KAgent,
+        maybe_agent_info: Option<kitsune_p2p_types::agent_info::AgentInfoSigned>,
+        initial_arc: OptArc,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-        /// Withdraw this space/agent pair from this network.
-        fn leave(space: KSpace, agent: KAgent) -> ();
+    /// Withdraw this space/agent pair from this network.
+    fn leave(space: KSpace, agent: KAgent) -> KitsuneP2pHandlerResult<()>;
 
-        /// Make a request of a single remote agent, expecting a response.
-        /// The remote side will receive a "Call" event.
-        fn rpc_single(space: KSpace, to_agent: KAgent, payload: Payload, timeout_ms: OptU64) -> Vec<u8>;
+    /// Make a request of a single remote agent, expecting a response.
+    /// The remote side will receive a "Call" event.
+    fn rpc_single(
+        space: KSpace,
+        to_agent: KAgent,
+        payload: Payload,
+        timeout_ms: OptU64,
+    ) -> KitsuneP2pHandlerResult<Vec<u8>>;
 
-        /// Make a request to multiple destination agents - awaiting/aggregating the responses.
-        /// The remote sides will see these messages as "Call" events.
-        /// NOTE: We've currently disabled the "multi" part of this.
-        /// It will still pick appropriate peers by basis, but will only
-        /// make requests one at a time, returning the first success.
-        fn rpc_multi(input: RpcMulti) -> Vec<RpcMultiResponse>;
+    /// Make a request to multiple destination agents - awaiting/aggregating the responses.
+    /// The remote sides will see these messages as "Call" events.
+    /// NOTE: We've currently disabled the "multi" part of this.
+    /// It will still pick appropriate peers by basis, but will only
+    /// make requests one at a time, returning the first success.
+    fn rpc_multi(input: RpcMulti) -> KitsuneP2pHandlerResult<Vec<RpcMultiResponse>>;
 
-        /// Publish data to a "neighborhood" of remote nodes surrounding the
-        /// "basis" hash. This is a multi-step fire-and-forget algorithm.
-        /// An Ok(()) result only means that we were able to establish at
-        /// least one connection with a node in the target neighborhood.
-        /// The remote sides will see these messages as "Notify" events.
-        fn broadcast(
-            space: KSpace,
-            basis: KBasis,
-            timeout: KitsuneTimeout,
-            data: BroadcastData,
-        ) -> ();
+    /// Publish data to a "neighborhood" of remote nodes surrounding the
+    /// "basis" hash. This is a multi-step fire-and-forget algorithm.
+    /// An Ok(()) result only means that we were able to establish at
+    /// least one connection with a node in the target neighborhood.
+    /// The remote sides will see these messages as "Notify" events.
+    fn broadcast(
+        space: KSpace,
+        basis: KBasis,
+        timeout: KitsuneTimeout,
+        data: BroadcastData,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-        /// Broadcast data to a specific set of agents without
-        /// expecting a response.
-        /// An Ok(()) result only means that we were able to establish at
-        /// least one connection with a node in the agent set.
-        fn targeted_broadcast(
-            space: KSpace,
-            agents: KAgents,
-            timeout: KitsuneTimeout,
-            payload: Payload,
+    /// Broadcast data to a specific set of agents without
+    /// expecting a response.
+    /// An Ok(()) result only means that we were able to establish at
+    /// least one connection with a node in the agent set.
+    fn targeted_broadcast(
+        space: KSpace,
+        agents: KAgents,
+        timeout: KitsuneTimeout,
+        payload: Payload,
 
-            // If we have reached the maximum concurrent notify requests limit
-            // (specified by tuning param `concurrent_limit_per_thread`)
-            // This message will be dropped / not sent, but still return an
-            // Ok() response.
-            drop_at_limit: bool,
-        ) -> ();
+        // If we have reached the maximum concurrent notify requests limit
+        // (specified by tuning param `concurrent_limit_per_thread`)
+        // This message will be dropped / not sent, but still return an
+        // Ok() response.
+        drop_at_limit: bool,
+    ) -> KitsuneP2pHandlerResult<()>;
 
-        /// New data has been integrated and is ready for gossiping.
-        fn new_integrated_data(space: KSpace) -> ();
+    /// New data has been integrated and is ready for gossiping.
+    fn new_integrated_data(space: KSpace) -> KitsuneP2pHandlerResult<()>;
 
-        /// Check if an agent is an authority for a hash.
-        fn authority_for_hash(
-            space: KSpace,
-            basis: KBasis,
-        ) -> bool;
+    /// Check if an agent is an authority for a hash.
+    fn authority_for_hash(space: KSpace, basis: KBasis) -> KitsuneP2pHandlerResult<bool>;
 
-        /// dump network metrics
-        fn dump_network_metrics(
-            space: KSpaceOpt,
-        ) -> serde_json::Value;
+    /// dump network metrics
+    fn dump_network_metrics(space: KSpaceOpt) -> KitsuneP2pHandlerResult<serde_json::Value>;
 
-        /// dump network stats
-        fn dump_network_stats() -> serde_json::Value;
+    /// dump network stats
+    fn dump_network_stats() -> KitsuneP2pHandlerResult<serde_json::Value>;
 
-        /// Get data for diagnostics
-        fn get_diagnostics(space: KSpace) -> KitsuneDiagnostics;
-    }
+    /// Get data for diagnostics
+    fn get_diagnostics(space: KSpace) -> KitsuneP2pHandlerResult<KitsuneDiagnostics>;
 }
