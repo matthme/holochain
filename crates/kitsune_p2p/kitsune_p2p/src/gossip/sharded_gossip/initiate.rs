@@ -39,7 +39,11 @@ impl ShardedGossipLocal {
             .await?;
 
         if let Some(agent) = &remote_agent {
-            tracing::warn!("{:?} Attempting to initiate gossip with {:?}", &local_agents, agent);
+            tracing::info!(
+                "{:?} Attempting to initiate gossip with {:?}",
+                &local_agents,
+                agent
+            );
         }
 
         let maybe_gossip = if let Some(next_target::Node {
@@ -89,7 +93,7 @@ impl ShardedGossipLocal {
         remote_id: u32,
         remote_agent_list: Vec<AgentInfoSigned>,
     ) -> KitsuneResult<Vec<ShardedGossipWire>> {
-        tracing::warn!("{} incoming initiate", remote_id);
+        tracing::debug!("{} incoming initiate", remote_id);
         let (local_agents, same_as_target, already_in_progress) =
             self.inner.share_mut(|i, _| {
                 let already_in_progress = i.round_map.round_exists(&peer_cert);
@@ -101,12 +105,17 @@ impl ShardedGossipLocal {
                 Ok((i.local_agents.clone(), same_as_target, already_in_progress))
             })?;
 
-        tracing::warn!("{} {:?} incoming initiate from {:?}", remote_id, &local_agents, &remote_agent_list);
+        tracing::debug!(
+            "{} {:?} incoming initiate from {:?}",
+            remote_id,
+            &local_agents,
+            &remote_agent_list
+        );
 
         // The round is already in progress from our side.
         // The remote side should not be initiating.
         if already_in_progress {
-            tracing::warn!("{} already in progress", remote_id);
+            tracing::debug!("{} already in progress", remote_id);
             // This means one side has already started a round but
             // a stale initiate was received.
             return Ok(vec![ShardedGossipWire::already_in_progress()]);
@@ -114,7 +123,7 @@ impl ShardedGossipLocal {
 
         // If this is the same connection as our current target then we need to decide who proceeds.
         if let Some(our_id) = same_as_target {
-            tracing::warn!("{} already in progress", remote_id);
+            tracing::debug!("{} already in progress", remote_id);
             // If we have a lower id then we proceed
             // and the remote will exit.
             // If we have a higher id than the remote
