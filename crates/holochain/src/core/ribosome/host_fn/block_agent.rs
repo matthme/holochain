@@ -41,11 +41,11 @@ mod test {
     use crate::conductor::api::error::ConductorApiResult;
     use crate::core::ribosome::wasm_test::RibosomeTestFixture;
     use crate::sweettest::*;
-    use crate::test_utils::{consistency_10s, consistency_10s_advanced, integrated_ops_count};
+    use crate::test_utils::{consistency_10s, consistency_10s_advanced};
     use holo_hash::ActionHash;
     use holo_hash::AgentPubKey;
+    use holochain_types::prelude::CapSecret;
     use holochain_types::prelude::ZomeCallResponse;
-    use holochain_types::prelude::{CapSecret, DhtOpLight};
     use holochain_types::prelude::{DhtOp, Record};
     use holochain_wasm_test_utils::TestWasm;
 

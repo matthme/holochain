@@ -1,6 +1,4 @@
-use crate::test_utils::{
-    get_integrated_ops, get_integrated_ops_light, get_published_ops, integrated_ops_count,
-};
+use crate::test_utils::{consistency::request_published_ops, get_integrated_ops};
 
 use super::SweetZome;
 use hdk::prelude::*;
@@ -48,8 +46,16 @@ impl SweetCell {
     }
 
     /// Get number of ops published by this cell
-    pub fn published_ops(&self) -> Vec<DhtOp> {
-        get_published_ops(self.authored_db(), self.cell_id.agent_pubkey())
+    pub async fn published_ops(&self) -> Vec<DhtOp> {
+        request_published_ops(
+            self.authored_db(),
+            Some(self.cell_id.agent_pubkey().to_owned()),
+        )
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|(_, _, o)| o)
+        .collect()
     }
 
     /// Get number of ops integrated by this conductor in this space
