@@ -651,8 +651,7 @@ async fn gather_published_data(
 ) -> StateQueryResult<Vec<PublishedData>> {
     use futures::stream::TryStreamExt;
     let iter = iter.map(|stores| async move {
-        let published_hashes = request_published_ops(&stores.authored_db, None)
-            .await?
+        let published_hashes = request_published_ops(&stores.authored_db, None)?
             .into_iter()
             .map(|(l, h, _)| (l, h))
             .collect();
@@ -676,14 +675,14 @@ async fn gather_published_data(
 }
 
 /// Request the published hashes for the given agent.
-pub async fn request_published_ops<AuthorDb>(
+pub fn request_published_ops<AuthorDb>(
     db: &AuthorDb,
     author: Option<AgentPubKey>,
 ) -> StateQueryResult<Vec<(DhtLocation, KitsuneOpHash, DhtOp)>>
 where
     AuthorDb: ReadAccess<DbKindAuthored>,
 {
-    db.async_reader(|txn| {
+    db.sync_reader(|txn| {
         // Collect all ops except StoreEntry's that are private.
         let sql_common = "
         SELECT
@@ -768,7 +767,6 @@ where
         };
         StateQueryResult::Ok(r)
     })
-    .await
 }
 
 /// Request the storage arc for the given agent.

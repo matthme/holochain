@@ -46,12 +46,11 @@ impl SweetCell {
     }
 
     /// Get number of ops published by this cell
-    pub async fn published_ops(&self) -> Vec<DhtOp> {
+    pub fn published_ops(&self) -> Vec<DhtOp> {
         request_published_ops(
             self.authored_db(),
             Some(self.cell_id.agent_pubkey().to_owned()),
         )
-        .await
         .unwrap()
         .into_iter()
         .map(|(_, _, o)| o)
