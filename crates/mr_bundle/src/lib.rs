@@ -13,12 +13,15 @@
 //! for each resource at a relative path specified by the Manifest.
 
 #![warn(missing_docs)]
+#![feature(plugin)]
+#![plugin(megadep)]
 
 mod bundle;
 mod encoding;
 pub mod error;
 mod location;
 mod manifest;
+mod megadep;
 mod resource;
 pub(crate) mod util;
 

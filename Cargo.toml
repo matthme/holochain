@@ -46,6 +46,7 @@ members = [
 
   "crates/holochain_diagnostics",
   "crates/diagnostic_tests",
+  "crates/megadep",
 ]
 
 exclude = ["crates/release-automation"]
