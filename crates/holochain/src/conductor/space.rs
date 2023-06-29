@@ -233,6 +233,12 @@ impl Spaces {
             }
         };
 
+        // If node_agents_in_spaces is not yet initialized, we can't know anything about
+        // which cells are blocked, so avoid the race condition by returning false
+        if cell_ids.is_empty() {
+            return false;
+        }
+
         self.conductor_db
             .async_reader(move |txn| {
                 Ok(
