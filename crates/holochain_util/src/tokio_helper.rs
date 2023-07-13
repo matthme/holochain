@@ -1,7 +1,11 @@
 use once_cell::sync::Lazy;
+use std::sync::atomic::AtomicU32;
 use tokio::runtime::Runtime;
 
 pub static TOKIO: Lazy<Runtime> = Lazy::new(|| new_runtime(None, None));
+
+static NUM_IO_THREADS: AtomicU32 = AtomicU32::new(0);
+static NUM_IDLE_IO_THREADS: AtomicU32 = AtomicU32::new(0);
 
 /// Instantiate a new runtime.
 pub fn new_runtime(worker_threads: Option<usize>, max_blocking_threads: Option<usize>) -> Runtime {
@@ -21,6 +25,29 @@ pub fn new_runtime(worker_threads: Option<usize>, max_blocking_threads: Option<u
     if let Some(max_blocking_threads) = max_blocking_threads {
         builder.max_blocking_threads(max_blocking_threads);
     };
+
+    builder.on_thread_start(|| {
+        let v = NUM_IO_THREADS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        println!("Launched new thread, now have {}", v + 1);
+    });
+
+    builder.on_thread_stop(|| {
+        let v = NUM_IO_THREADS.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        println!("Stopped a thread, now have {}", v - 1);
+
+        // let v = NUM_IDLE_IO_THREADS.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        // println!("Stopped a thread, now have {} idle", v - 1);
+    });
+
+    // builder.on_thread_park(|| {
+    //     let v = NUM_IDLE_IO_THREADS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    //     println!("Parked a thread, now have {} idle", v + 1);
+    // });
+    //
+    // builder.on_thread_unpark(|| {
+    //     let v = NUM_IDLE_IO_THREADS.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    //     println!("Un-parked a thread, now have {} idle", v);
+    // });
 
     builder
         // build the runtime
