@@ -188,6 +188,29 @@ impl AppManifestV1 {
         }
     }
 
+    /// Sets the dna properties for the dnas of the roles specified in the
+    /// roles_properties field.
+    pub fn set_dna_properties(
+        &mut self,
+        properties_map: HashMap<RoleName, Option<YamlProperties>>,
+    ) -> AppManifestResult<()> {
+        for (role_name, properties) in properties_map.iter() {
+            let mut role_exists = false;
+            for role in self.roles.iter_mut() {
+                if &role.name == role_name {
+                    role.dna.modifiers.properties = properties.clone();
+                    role_exists = true;
+                }
+            }
+            if role_exists == false {
+                return Err(AppManifestError::RoleDoesNotExist(format!(
+                    "Role {role_name} that was passed into set_dna_properties does not exist."
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// Convert this human-focused manifest into a validated, concise representation
     pub fn validate(self) -> AppManifestResult<AppManifestValidated> {
         let AppManifestV1 {

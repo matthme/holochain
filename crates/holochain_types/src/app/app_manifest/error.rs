@@ -14,6 +14,9 @@ pub enum AppManifestError {
 
     #[error(transparent)]
     SerializationError(#[from] SerializedBytesError),
+
+    #[error("Role does not exist: {0}")]
+    RoleDoesNotExist(String),
 }
 
 /// A result that returns a generic type T in case of success and an
