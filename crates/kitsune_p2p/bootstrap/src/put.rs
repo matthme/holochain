@@ -16,6 +16,9 @@ pub(crate) fn put(
 }
 
 async fn put_info(peer: Bytes, store: Store) -> Result<impl warp::Reply, warp::Rejection> {
+    let json_peer = serde_json::from_slice::<serde_json::Value>(&peer.to_vec())
+        .expect("Failed to deserialize peer to serde_json Value");
+    println!("\n\n@put_info: json_peer: {}\n\n", json_peer);
     #[derive(Debug)]
     struct BadDecode(#[allow(dead_code)] String);
     impl warp::reject::Reject for BadDecode {}
