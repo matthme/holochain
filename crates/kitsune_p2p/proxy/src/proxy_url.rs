@@ -144,7 +144,13 @@ impl ProxyUrl {
             // override for tx5
             if let Some(mut i) = self.full.path_segments() {
                 if let Some(u) = i.next() {
-                    let digest = base64::prelude::BASE64_URL_SAFE_NO_PAD.decode(u).unwrap();
+                    let digest = match base64::prelude::BASE64_URL_SAFE_NO_PAD.decode(u) {
+                        Ok(decoded) => decoded,
+                        Err(e) => {
+                            println!("\n\n\n################\n\nGot proxy_url DecodeError. Url: {}. Path segment: {}.\n\nError:\n{}\n\n\n################\n\n", self.full, u, e);
+                            panic!("Got proxy_url_decode error.");
+                        }
+                    };
                     return CertDigest::from_slice(&digest);
                 }
             }

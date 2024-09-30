@@ -1,8 +1,7 @@
 CREATE TABLE IF NOT EXISTS BlockSpan (
   id INTEGER PRIMARY KEY,
   target_id BLOB NOT NULL,
-  target_reason BLOB NOT NULL,
-  -- start and end micros
+  target_reason BLOB NOT NULL,  -- start and end micros
   -- literal integer from Timestamp in rust
   start_us INTEGER NOT NULL,
   end_us INTEGER NOT NULL
